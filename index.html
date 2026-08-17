@@ -3621,14 +3621,45 @@ async function api(payload){
     headers["anthropic-version"] = "2023-06-01";
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST", headers,
-    body: JSON.stringify({model:"claude-sonnet-4-6", max_tokens:1000, ...payload})
-  });
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST", headers,
+      body: JSON.stringify({model:"claude-sonnet-4-6", max_tokens:1000, ...payload})
+    });
+  } catch (e){
+    const err = new Error("network");                      // CORS, ad-blocker, offline
+    err.kind = "network";
+    throw err;
+  }
+  if (!res.ok){
+    let msg = "";
+    try { msg = (await res.json())?.error?.message || ""; } catch (e){}
+    const err = new Error(msg || ("HTTP " + res.status));
+    err.kind = "http"; err.status = res.status; err.msg = msg;
+    throw err;
+  }
   const data = await res.json();
   if (!Array.isArray(data.content)) throw new Error("bad response");
   return data;
+}
+
+function explainFailure(err){
+  if (!apiKey)
+    return "No model is connected, so that was read straight off the board. Paste an API key at the top of the chat to enable the analyst.";
+  if (!apiKey.startsWith("sk-ant-"))
+    return "That key doesn't look like an Anthropic key — Anthropic keys start sk-ant-… (OpenAI keys won't work here; this panel calls Anthropic). Get one at console.anthropic.com → API Keys.";
+  if (err && err.kind === "network")
+    return "The request never reached Anthropic — usually an ad-blocker or privacy extension. Try an incognito window with extensions off.";
+  if (err && err.status === 401)
+    return "Anthropic rejected the key (401 unauthorised). Re-copy it from console.anthropic.com — keys are shown once and easy to truncate when copying.";
+  if (err && err.status === 400 && /credit|billing/i.test(err.msg || ""))
+    return "The key is valid but the account has no credit — add billing at console.anthropic.com → Billing. (Anthropic said: " + err.msg + ")";
+  if (err && (err.status === 429 || err.status === 529))
+    return "Anthropic is rate-limiting or overloaded right now (HTTP " + err.status + ") — wait a moment and ask again.";
+  if (err && err.status)
+    return "Anthropic returned HTTP " + err.status + (err.msg ? " — " + err.msg : "") + ".";
+  return "The model call failed: " + ((err && err.message) || "unknown error") + ".";
 }
 
 const textOf = res => res.content.filter(c => c.type === "text").map(c => c.text).join("\n").trim();
@@ -3711,8 +3742,7 @@ async function ask(question){
     try { rendered = localRenders(question, boardJSON()); } catch (e) {}
     addMsg(localAnswer() + (rendered.length ? "\n\nRendered locally without a model: " + rendered.join(", ") + "." : ""), "bot");
     syncKeyUI(true);
-    addMsg(apiKey ? "That key was rejected — check it and try again."
-                  : "No model is connected, so that was read straight off the board. Paste an API key at the top of the chat to enable the analyst.", "sys");
+    addMsg(explainFailure(err), "sys");
   }
   busy = false;
   chatSend.disabled = false;
@@ -3797,6 +3827,8 @@ $("chatKeySave").addEventListener("click", () => {
   keyStore.set(v);
   syncKeyUI(false);
   addMsg("Key active for this session — it stays until this tab closes, refreshes included.", "sys");
+  if (!v.startsWith("sk-ant-"))
+    addMsg("Heads up: that doesn't look like an Anthropic key (they start sk-ant-…). If it's an OpenAI key it will be refused — this panel calls Anthropic.", "sys");
   chatInput.focus();
 });
 $("chatKeyClear").addEventListener("click", () => {

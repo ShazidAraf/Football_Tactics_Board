@@ -1,0 +1,2386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Football Tactics Board</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23d6342c'/><circle cx='36' cy='34' r='14' fill='white' opacity='.75'/></svg>">
+<style>
+  :root{
+    --grass:#2e6a32; --grass-lt:#377c3c;
+    --ink:#16181c;
+    --board:#fbfaf6;
+    --red:#d63a2f;
+    --blue:#2a5bd0;
+    --gk:#f2c21f;
+    --coal:#232629; --coal-edge:#33373c;
+    --chalk:#e8e9ea; --muted:#9aa1a8;
+    --body: -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    /* pitch rectangle inside the board, in % of the board surface */
+    --mL:4.5; --mT:10; --sX:.91; --sY:.82;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    min-height:100svh;
+    font-family:var(--body);
+    color:var(--chalk);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; padding:26px 14px 30px;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,0) 22% 70%, rgba(0,0,0,.38)),
+      repeating-linear-gradient(90deg, var(--grass) 0 110px, var(--grass-lt) 110px 220px);
+  }
+  .stage{width:min(1180px,96vw); display:flex; flex-direction:column; gap:14px}
+
+  /* ── dugout control rail ─────────────────────────────── */
+  .rail{
+    position:relative; z-index:5;
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px;
+    background:linear-gradient(180deg,var(--coal-edge),var(--coal) 30%);
+    border:1px solid #000a; border-radius:14px;
+    padding:12px 16px;
+    box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .team{position:relative; display:flex; align-items:center; gap:9px}
+  .dot{width:15px; height:15px; border-radius:50%; flex:none; box-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .dot.red{background:var(--red)}
+  .dot.blue{background:var(--blue)}
+  .team label{font-size:11px; font-weight:700; letter-spacing:.14em; color:var(--muted)}
+  select{
+    color-scheme:dark; appearance:none; -webkit-appearance:none;
+    font:600 14px/1.2 var(--body); color:var(--chalk);
+    background:#191b1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa1a8' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border:1px solid #3c4046; border-radius:9px;
+    padding:8px 30px 8px 12px; cursor:pointer; min-width:118px;
+  }
+  select:focus-visible{outline:2px solid var(--gk); outline-offset:1px}
+  .spacer{flex:1}
+  .switch{display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none}
+  .switch input{position:absolute; opacity:0; pointer-events:none}
+  .switch .box{
+    width:17px; height:17px; flex:none; border-radius:5px;
+    background:#0e1012; border:1px solid #4a4f56; position:relative; transition:background .15s, border-color .15s;
+  }
+  .switch .box::after{
+    content:""; position:absolute; left:5px; top:1.5px; width:5px; height:9px;
+    border:solid #241c00; border-width:0 2.2px 2.2px 0; transform:rotate(42deg) scale(.4);
+    opacity:0; transition:opacity .15s, transform .15s;
+  }
+  .switch input:checked + .box{background:var(--gk); border-color:var(--gk)}
+  .switch input:checked + .box::after{opacity:1; transform:rotate(42deg) scale(1)}
+  .switch input:focus-visible + .box{outline:2px solid var(--gk); outline-offset:2px}
+  .switch span{font-size:12.5px; font-weight:600; color:var(--chalk); letter-spacing:.03em}
+
+  .show-wrap{position:relative}
+  .show-pop{
+    position:absolute; top:calc(100% + 10px); right:0; z-index:45;
+    display:flex; flex-direction:column; gap:11px;
+    background:#17191c; border:1px solid #3c4046; border-radius:12px;
+    padding:13px 15px; box-shadow:0 14px 30px rgba(0,0,0,.55); white-space:nowrap;
+  }
+  .show-pop[hidden]{display:none}
+  .btn{
+    font:700 13px/1 var(--body); letter-spacing:.05em;
+    border-radius:10px; padding:11px 16px; cursor:pointer; border:1px solid transparent;
+  }
+  .btn:focus-visible{outline:2px solid #fff; outline-offset:2px}
+  .btn.ghost{background:transparent; color:var(--chalk); border-color:#4a4f56}
+  .btn.ghost:hover{border-color:#767c84; background:#ffffff10}
+  .btn.export{
+    display:inline-flex; align-items:center; gap:8px;
+    background:linear-gradient(180deg,#ffd54a,var(--gk) 55%,#d8a90e);
+    color:#241c00; border-color:#a37f00;
+    box-shadow:0 3px 0 #7c6000, 0 8px 14px rgba(0,0,0,.35);
+  }
+  .btn.export:hover{filter:brightness(1.05)}
+  .btn.export:active{transform:translateY(2px); box-shadow:0 1px 0 #7c6000}
+
+  /* save-shape chip: appears once a team's positions go Custom */
+  .save-chip{
+    display:none; align-items:center; gap:6px;
+    font:700 12px/1 var(--body); letter-spacing:.04em;
+    color:var(--gk); background:#f2c21f12;
+    border:1px solid #f2c21f55; border-radius:9px;
+    padding:8px 11px; cursor:pointer;
+  }
+  .team.custom .save-chip{display:inline-flex}
+  .save-chip:hover{background:#f2c21f24}
+  .save-chip:focus-visible{outline:2px solid var(--gk); outline-offset:2px}
+
+  .pop{
+    position:absolute; top:calc(100% + 10px); left:0; z-index:40;
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    background:#17191c; border:1px solid #3c4046; border-radius:12px;
+    padding:10px; box-shadow:0 14px 30px rgba(0,0,0,.55);
+    max-width:min(320px, 88vw);
+  }
+  .pop[hidden]{display:none}
+  .pop input{
+    font:600 13px/1.2 var(--body); color:var(--chalk);
+    background:#0e1012; border:1px solid #3c4046; border-radius:8px;
+    padding:9px 10px; width:150px;
+  }
+  .pop input:focus-visible{outline:2px solid var(--gk); outline-offset:1px}
+  .pop .mini{padding:9px 12px; font-size:12px}
+  .pop .err{display:none; width:100%; font-size:11px; color:#ff9b90}
+  .pop.has-err .err{display:block}
+
+  /* ── the whiteboard ──────────────────────────────────── */
+  .frame{
+    padding:1.5%;
+    border-radius:20px;
+    background:linear-gradient(150deg,#eef0f3,#c3c8cf 38%,#878d96 82%,#a8adb5);
+    box-shadow:0 34px 60px rgba(0,0,0,.5), 0 6px 16px rgba(0,0,0,.35),
+               inset 0 1px 1px rgba(255,255,255,.85), inset 0 -2px 3px rgba(0,0,0,.28);
+  }
+  .board{
+    position:relative; aspect-ratio:1391/1000; border-radius:8px;
+    background:var(--board);
+    box-shadow:inset 0 0 0 1px #0002, inset 0 2px 10px rgba(0,0,0,.14);
+    overflow:hidden; touch-action:none;
+  }
+  .board::after{ /* dry-wipe sheen */
+    content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+    background:radial-gradient(130% 95% at 18% -8%, rgba(255,255,255,.6), transparent 46%);
+  }
+  .pitch{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+  /* ── magnets ─────────────────────────────────────────── */
+  .magnet{
+    position:absolute; width:max(3.4%,21px); aspect-ratio:1;
+    font-size:clamp(9px,1.1vw,15px);
+    margin:0; padding:0; border:none; background:none;
+    transform:translate(-50%,-50%); cursor:grab; touch-action:none;
+    transition:left .55s cubic-bezier(.22,.9,.24,1), top .55s cubic-bezier(.22,.9,.24,1);
+    z-index:2;
+  }
+  .magnet::before{ /* flat disc — single uniform colour, no gloss */
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background:var(--c);
+    box-shadow:0 2px 5px rgba(0,0,0,.28);
+  }
+  .magnet.red {--c:var(--red)}
+  .magnet.blue{--c:var(--blue)}
+  .magnet .n{
+    position:absolute; inset:0; display:grid; place-items:center;
+    font:800 1em/1 var(--body); color:#fff;
+    pointer-events:none; transition:opacity .2s;
+  }
+  /* face photo (or initials) fills the disc when Face is on */
+  .magnet .face{
+    position:absolute; inset:0; border-radius:50%; overflow:hidden;
+    display:none; place-items:center; pointer-events:none;
+    background:var(--c) center/cover no-repeat;
+    box-shadow:0 2px 5px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.85);
+  }
+  .magnet .face .ini{font:800 .78em/1 var(--body); color:#fff; letter-spacing:.02em}
+  .magnet .face.photo .ini{display:none}
+  /* name label under the disc */
+  .magnet .nm{
+    position:absolute; top:112%; left:50%; transform:translateX(-50%);
+    display:none; max-width:8.5em; padding:.16em .42em; border-radius:.35em;
+    font:700 .72em/1.15 var(--body); color:#16181b; background:rgba(255,255,255,.9);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;
+    pointer-events:none;
+  }
+  body.show-face .magnet .face{display:grid}
+  body.show-name .magnet .nm{display:block}
+  body:not(.show-num) .magnet .n{opacity:0}
+  /* with a face on, the number shrinks to a corner badge so both can show */
+  body.show-face.show-num .magnet .n{
+    inset:auto -8% -8% auto; width:1.35em; height:1.35em; border-radius:50%;
+    background:#16181b; box-shadow:0 1px 3px rgba(0,0,0,.5);
+    font-size:.62em; z-index:3;
+  }
+  .magnet.drag{transition:none; cursor:grabbing; z-index:60}
+  .magnet.drag::before{transform:scale(1.14); box-shadow:0 6px 14px rgba(0,0,0,.32)}
+  .magnet:focus-visible{outline:none}
+  .magnet:focus-visible::after{content:""; position:absolute; inset:-5px; border-radius:50%;
+      border:2.5px dashed var(--ink); opacity:.75}
+  .magnet.sel::after{content:""; position:absolute; inset:-6px; border-radius:50%;
+      border:2.5px solid var(--gk); box-shadow:0 0 0 2px rgba(0,0,0,.3)}
+  /* the player at the ball gets a white collar so possession reads at a glance */
+  .magnet.has-ball::before{box-shadow:0 0 0 2.5px #fff, 0 0 0 4px rgba(0,0,0,.35), 0 2px 5px rgba(0,0,0,.28)}
+
+  /* ── drawing toolbar ─────────────────────────────────── */
+  .tools{
+    display:flex; flex-wrap:wrap; align-items:center; gap:7px 9px;
+    background:linear-gradient(180deg,#1d2023,#141618);
+    border:1px solid #000a; border-radius:12px; padding:9px 11px;
+    box-shadow:0 8px 18px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .tool{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#0e1012; color:var(--muted); border:1px solid #2c3035; border-radius:9px;
+    padding:7px 9px; cursor:pointer;
+    font:700 11px/1 var(--body); letter-spacing:.04em; white-space:nowrap;
+  }
+  .tool svg{display:block; flex:none}
+  .tool:hover{border-color:#5b6068; color:var(--chalk)}
+  .tool.on{background:var(--gk); border-color:var(--gk); color:#241c00}
+  .tool.on svg{color:#241c00}
+  .tool:focus-visible{outline:2px solid #fff; outline-offset:2px}
+  .tool-sep{width:1px; height:24px; background:#33373c; flex:none}
+  .swatch{
+    width:22px; height:22px; padding:0; border-radius:50%; cursor:pointer;
+    border:2px solid transparent; box-shadow:inset 0 0 0 2px #0e1012;
+  }
+  .swatch.on{border-color:#fff}
+  .swatch:focus-visible{outline:2px solid #fff; outline-offset:2px}
+  .tools .switch span{font-size:11px; letter-spacing:.04em; color:var(--muted)}
+
+  /* ── drawing layers ──────────────────────────────────── */
+  .draw{position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none}
+  .capture{position:absolute; inset:0; z-index:50; display:none; cursor:crosshair; touch-action:none}
+  body.drawing .capture{display:block}
+  body.drawing .magnet, body.drawing .ball{pointer-events:none}
+  body.erasing .capture{cursor:pointer}
+  .seq text{font:700 15px var(--body); fill:#fff; text-anchor:middle; dominant-baseline:central}
+  body:not(.show-seq) .seq{display:none}
+
+  /* ── scenarios ───────────────────────────────────────── */
+  .modal{
+    position:fixed; inset:0; z-index:90; display:grid; place-items:center;
+    background:rgba(8,10,12,.62); padding:20px;
+  }
+  .modal[hidden]{display:none}
+  .sheet{
+    width:min(560px,96vw); max-height:88svh; overflow-y:auto;
+    background:linear-gradient(180deg,#212427,#17191c 160px);
+    border:1px solid #000a; border-radius:16px; padding:20px;
+    box-shadow:0 30px 70px rgba(0,0,0,.6);
+  }
+  .sheet-hd{display:flex; align-items:flex-start; gap:12px; margin-bottom:16px}
+  .sheet-hd h2{margin:0; font:800 19px/1.2 var(--body); color:var(--chalk); letter-spacing:.01em}
+  .sheet-hd p{margin:5px 0 0; font:500 12.5px/1.5 var(--body); color:var(--muted)}
+  .scen-list{list-style:none; margin:0 0 16px; padding:0; display:flex; flex-direction:column; gap:8px}
+  .scen-row{
+    display:flex; align-items:center; gap:12px;
+    background:#0e1012; border:1px solid #2c3035; border-radius:11px; padding:11px 12px;
+  }
+  .scen-row .txt{flex:1; min-width:0}
+  .scen-row .nm3{display:block; font:700 13.5px/1.3 var(--body); color:var(--chalk)}
+  .scen-row .ds{display:block; margin-top:3px; font:500 11.5px/1.45 var(--body); color:var(--muted)}
+  .scen-row .pick{display:flex; gap:6px; flex:none}
+  .team-btn{
+    padding:8px 11px; font:700 11px/1 var(--body); letter-spacing:.06em;
+    border-radius:8px; cursor:pointer; border:1px solid;
+  }
+  .team-btn.red{background:#d63a2f1f; border-color:#d63a2f; color:#ff9184}
+  .team-btn.red:hover{background:var(--red); color:#fff}
+  .team-btn.blue{background:#2a5bd01f; border-color:#2a5bd0; color:#9db6ff}
+  .team-btn.blue:hover{background:var(--blue); color:#fff}
+  .team-btn:focus-visible{outline:2px solid #fff; outline-offset:2px}
+  .scen-row .del2{
+    flex:none; width:24px; height:24px; display:grid; place-items:center;
+    background:transparent; border:none; border-radius:6px; cursor:pointer; color:#6c7278;
+  }
+  .scen-row .del2:hover{color:#ff9b90; background:#ffffff10}
+  .scen-add{border-top:1px solid #33373c; padding-top:14px}
+  .scen-form{display:flex; flex-direction:column; gap:9px; margin-top:11px}
+  .scen-form input{
+    font:600 13px/1.2 var(--body); color:var(--chalk);
+    background:#0e1012; border:1px solid #3c4046; border-radius:9px; padding:10px 11px;
+  }
+  .scen-form input:focus-visible{outline:2px solid var(--gk); outline-offset:1px}
+  .scen-hint{margin:2px 0 0; font:600 10.5px/1 var(--body); letter-spacing:.1em; color:var(--muted)}
+  .scen-cap{display:flex; gap:8px; flex-wrap:wrap}
+  .scen-err{font:500 11.5px/1.4 var(--body); color:#ff9b90; min-height:1em}
+
+  /* ── the ball ────────────────────────────────────────── */
+  .ball{
+    position:absolute; width:max(2.1%,14px); aspect-ratio:1;
+    margin:0; padding:0; border:none; background:none;
+    transform:translate(-50%,-50%); cursor:grab; touch-action:none; z-index:6;
+    transition:left .3s cubic-bezier(.22,.9,.24,1), top .3s cubic-bezier(.22,.9,.24,1);
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));
+  }
+  .ball svg{width:100%; height:100%; display:block}
+  .ball.drag{transition:none; cursor:grabbing; z-index:70; transform:translate(-50%,-50%) scale(1.25)}
+  .ball:focus-visible{outline:none}
+  .ball:focus-visible::after{content:""; position:absolute; inset:-5px; border-radius:50%;
+      border:2.5px dashed var(--ink); opacity:.8}
+
+  /* ── ratings inspector ───────────────────────────────── */
+  .insp{
+    position:fixed; top:0; right:0; z-index:80;
+    width:min(340px,92vw); height:100svh; overflow-y:auto; overscroll-behavior:contain;
+    background:linear-gradient(180deg,#212427,#17191c 140px);
+    border-left:1px solid #000a; box-shadow:-18px 0 40px rgba(0,0,0,.5);
+    padding:18px 18px 28px;
+    transform:translateX(102%); transition:transform .28s cubic-bezier(.3,.9,.3,1);
+  }
+  .insp.open{transform:none}
+  .insp-top{display:flex; align-items:center; gap:10px}
+  .insp-badge{
+    width:38px; height:38px; border-radius:50%; flex:none; display:grid; place-items:center;
+    font:800 15px/1 var(--body); color:#fff;
+  }
+  .insp-badge.red{background:var(--red)} .insp-badge.blue{background:var(--blue)}
+  .insp-id{flex:1; min-width:0}
+  .insp-id .who{font:700 15px/1.2 var(--body); color:var(--chalk)}
+  .insp-id .sub{font:600 11px/1.5 var(--body); letter-spacing:.14em; color:var(--muted); text-transform:uppercase}
+  .icon-btn{
+    width:30px; height:30px; flex:none; display:grid; place-items:center;
+    background:transparent; color:var(--chalk); border:1px solid #4a4f56; border-radius:8px; cursor:pointer;
+  }
+  .icon-btn:hover{border-color:#767c84; background:#ffffff10}
+  .icon-btn:focus-visible{outline:2px solid var(--gk); outline-offset:2px}
+
+  .insp-meta{display:flex; gap:8px; margin:14px 0 2px}
+  .insp-meta label{flex:1; font:600 10px/1 var(--body); letter-spacing:.14em; color:var(--muted)}
+  .insp-meta input{
+    display:block; width:100%; margin-top:6px;
+    font:600 13px/1.2 var(--body); color:var(--chalk);
+    background:#0e1012; border:1px solid #3c4046; border-radius:8px; padding:8px 9px;
+  }
+  .insp-meta input:focus-visible{outline:2px solid var(--gk); outline-offset:1px}
+  .face-row{align-items:center; gap:12px}
+  .face-prev{
+    width:46px; height:46px; flex:none; border-radius:50%;
+    display:grid; place-items:center;
+    background:#0e1012 center/cover no-repeat; border:1px solid #3c4046;
+    font:800 14px/1 var(--body); color:var(--muted);
+  }
+  .face-acts{display:flex; gap:8px; flex-wrap:wrap}
+  .face-acts .btn{padding:8px 11px; font-size:12px}
+  .ball-btn{width:100%; text-align:center}
+  .ball-btn.on{background:#fff; color:#16181b; border-color:#fff}
+
+  .ovr{
+    display:flex; align-items:baseline; gap:9px; margin:16px 0 2px;
+    padding-top:14px; border-top:1px solid #33373c;
+  }
+  .ovr b{font:800 30px/1 var(--body); color:var(--gk)}
+  .ovr span{font:600 10px/1.4 var(--body); letter-spacing:.16em; color:var(--muted)}
+
+  .attr{margin:14px 0}
+  .attr-hd{display:flex; align-items:center; gap:8px; margin-bottom:5px}
+  .attr-hd .name{flex:1; font:700 12px/1.3 var(--body); letter-spacing:.05em; color:var(--chalk)}
+  .attr-hd input{
+    width:54px; text-align:center;
+    font:700 13px/1 var(--mono); color:var(--chalk);
+    background:#0e1012; border:1px solid #3c4046; border-radius:7px; padding:7px 4px;
+    -moz-appearance:textfield;
+  }
+  .attr-hd input::-webkit-outer-spin-button,
+  .attr-hd input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+  .attr-hd input:focus-visible{outline:2px solid var(--gk); outline-offset:1px}
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:18px;
+    background:transparent; cursor:pointer; display:block;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:6px; border-radius:99px;
+    background:linear-gradient(90deg, var(--fill) var(--pct), #34383d var(--pct));
+  }
+  input[type=range]::-moz-range-track{height:6px; border-radius:99px; background:#34383d}
+  input[type=range]::-moz-range-progress{height:6px; border-radius:99px; background:var(--fill)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; margin-top:-5px;
+    width:16px; height:16px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border:none; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.6);
+  }
+  input[type=range]:focus-visible{outline:2px solid var(--gk); outline-offset:4px; border-radius:99px}
+
+  .insp-foot{display:flex; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid #33373c}
+  .insp-foot .btn{flex:1; text-align:center}
+
+  /* ── bench ───────────────────────────────────────────── */
+  .bench{margin-top:20px; padding-top:16px; border-top:1px solid #33373c}
+  .bench-hd{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px}
+  .bench-hd span{font:700 10px/1 var(--body); letter-spacing:.16em; color:var(--muted)}
+  .bench-hd b{color:var(--chalk)}
+  .bench-hd .btn{padding:7px 10px; font-size:11px}
+  .bench-empty{margin:0; font:500 11.5px/1.5 var(--body); color:var(--muted)}
+  .bench-empty[hidden]{display:none}
+  .bench-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+  .bench-row{
+    display:flex; align-items:center; gap:9px; width:100%;
+    background:#0e1012; border:1px solid #2c3035; border-radius:10px;
+    padding:8px 9px; cursor:pointer; text-align:left; color:var(--chalk);
+    font:inherit;
+  }
+  .bench-row:hover{border-color:var(--gk); background:#14161a}
+  .bench-row:focus-visible{outline:2px solid var(--gk); outline-offset:2px}
+  .bench-row .shirt{
+    width:26px; height:26px; flex:none; border-radius:50%;
+    display:grid; place-items:center; background:center/cover no-repeat var(--tc);
+    font:800 11px/1 var(--body); color:#fff;
+  }
+  .bench-row .who{flex:1; min-width:0}
+  .bench-row .who .nm2{display:block; font:700 12.5px/1.3 var(--body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .bench-row .who .mt{display:block; font:600 10px/1.3 var(--body); letter-spacing:.08em; color:var(--muted)}
+  .bench-row .ov{font:800 13px/1 var(--body); color:var(--gk); flex:none}
+  .bench-row .go{font:700 10px/1 var(--body); letter-spacing:.1em; color:var(--muted); flex:none}
+  .bench-row:hover .go{color:var(--gk)}
+  .bench-del{
+    flex:none; width:22px; height:22px; display:grid; place-items:center;
+    background:transparent; border:none; border-radius:6px; cursor:pointer; color:#6c7278;
+  }
+  .bench-del:hover{color:#ff9b90; background:#ffffff10}
+
+  .hint{margin:0; text-align:center; font-size:12.5px; color:#eaf3ea; opacity:.85; text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .hint b{font-weight:700}
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px);
+    background:#111316; color:var(--chalk); border:1px solid #3c4046;
+    font:600 13px/1.35 var(--body); padding:11px 16px; border-radius:99px;
+    box-shadow:0 10px 24px rgba(0,0,0,.45); max-width:92vw; text-align:center;
+    opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
+  }
+  .toast.on{opacity:1; transform:translate(-50%,0)}
+
+  @media (max-width:640px){
+    body{padding:14px 8px 20px}
+    .rail{padding:10px 12px; gap:8px 12px}
+    select{min-width:104px; padding:7px 26px 7px 10px}
+    .spacer{display:none}
+    .hint{font-size:11.5px}
+    .insp{
+      top:auto; bottom:0; right:0; width:100%; height:min(78svh,580px);
+      border-left:none; border-top:1px solid #000a; border-radius:16px 16px 0 0;
+      transform:translateY(102%);
+    }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<main class="stage">
+
+  <header class="rail" aria-label="Board controls">
+    <div class="team" id="teamRed">
+      <span class="dot red" aria-hidden="true"></span>
+      <label for="selRed">RED</label>
+      <select id="selRed" aria-label="Red team formation"></select>
+      <select id="sqRed" class="squad" aria-label="Load a squad into the red team"></select>
+      <button class="save-chip" type="button" data-team="red" title="Save red's current shape as a formation">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .8l1.5 3.1 3.4.5-2.5 2.4.6 3.4L6 8.6 3 10.2l.6-3.4L1.1 4.4l3.4-.5z" fill="currentColor"/></svg>
+        Save shape
+      </button>
+    </div>
+    <div class="team" id="teamBlue">
+      <span class="dot blue" aria-hidden="true"></span>
+      <label for="selBlue">BLUE</label>
+      <select id="selBlue" aria-label="Blue team formation"></select>
+      <select id="sqBlue" class="squad" aria-label="Load a squad into the blue team"></select>
+      <button class="save-chip" type="button" data-team="blue" title="Save blue's current shape as a formation">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .8l1.5 3.1 3.4.5-2.5 2.4.6 3.4L6 8.6 3 10.2l.6-3.4L1.1 4.4l3.4-.5z" fill="currentColor"/></svg>
+        Save shape
+      </button>
+    </div>
+    <span class="spacer"></span>
+    <div class="show-wrap">
+      <button class="btn ghost" id="showBtn" type="button" aria-expanded="false" aria-controls="showPop">Show ▾</button>
+      <div class="show-pop" id="showPop" hidden>
+        <label class="switch"><input type="checkbox" id="tgNum" checked><span class="box" aria-hidden="true"></span><span>Number</span></label>
+        <label class="switch"><input type="checkbox" id="tgName" checked><span class="box" aria-hidden="true"></span><span>Name</span></label>
+        <label class="switch"><input type="checkbox" id="tgFace"><span class="box" aria-hidden="true"></span><span>Face</span></label>
+      </div>
+    </div>
+    <button class="btn ghost" id="scenBtn" type="button">Scenarios</button>
+    <button class="btn ghost" id="importBtn" type="button">Import</button>
+    <button class="btn ghost" id="resetBtn" type="button">Reset</button>
+    <button class="btn export" id="exportBtn" type="button">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v8m0 0L3.6 5.6M7 9l3.4-3.4M1.5 12.5h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Export JSON
+    </button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+
+    <div class="pop" id="pop" hidden>
+      <input id="popName" type="text" maxlength="28" aria-label="Formation name" placeholder="Name this shape">
+      <button class="btn export mini" id="popSave" type="button">Save</button>
+      <button class="btn ghost mini" id="popCancel" type="button">Cancel</button>
+      <span class="err" id="popErr"></span>
+    </div>
+  </header>
+
+  <div class="tools" id="tools" role="toolbar" aria-label="Drawing tools">
+    <button class="tool on" type="button" data-tool="none" aria-pressed="true" title="Move players and the ball">
+      <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><circle cx="5" cy="6" r="3.2" fill="currentColor"/><path d="M11 6h5m0 0l-2-2m2 2l-2 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      MOVE
+    </button>
+    <span class="tool-sep" aria-hidden="true"></span>
+
+    <button class="tool" type="button" data-tool="run" aria-pressed="false" title="Run without the ball — solid arrow">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M25 6l-6.5-3.2v6.4z" fill="currentColor"/></svg>
+      RUN
+    </button>
+    <button class="tool" type="button" data-tool="pass" aria-pressed="false" title="Pass — dashed arrow">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h18" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3" fill="none" stroke-linecap="round"/><path d="M25 6l-6.5-3.2v6.4z" fill="currentColor"/></svg>
+      PASS
+    </button>
+    <button class="tool" type="button" data-tool="lob" aria-pressed="false" title="Lofted or long pass in the air — arced dashed line">
+      <svg width="26" height="14" viewBox="0 0 26 14" aria-hidden="true"><path d="M1 11q9-11 18-2" stroke="currentColor" stroke-width="1.7" stroke-dasharray="5 2.5 1.5 2.5" fill="none" stroke-linecap="round"/><path d="M24 12l-5.6-4.6-.8 5.8z" fill="currentColor"/></svg>
+      LOB
+    </button>
+    <button class="tool" type="button" data-tool="dribble" aria-pressed="false" title="Dribble — carry the ball">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6q2.2-3.4 4.5 0t4.5 0 4.5 0 4.5 0" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M25 6l-6.5-3.2v6.4z" fill="currentColor"/></svg>
+      DRIBBLE
+    </button>
+    <button class="tool" type="button" data-tool="shot" aria-pressed="false" title="Shot — double arrow">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 4h17M1 8h17" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M25 6l-7-4v8z" fill="currentColor"/></svg>
+      SHOT
+    </button>
+    <button class="tool" type="button" data-tool="hold" aria-pressed="false" title="Move here and hold the position">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h18M22 1.5v9" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+      HOLD
+    </button>
+    <button class="tool" type="button" data-tool="link" aria-pressed="false" title="Marking assignment or passing lane — dotted line">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h24" stroke="currentColor" stroke-width="1.8" stroke-dasharray="1.5 3.5" fill="none" stroke-linecap="round"/></svg>
+      MARK
+    </button>
+    <button class="tool" type="button" data-tool="zone" aria-pressed="false" title="Shade a zone — space to attack or defend">
+      <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect x="1" y="1.5" width="18" height="11" rx="1.5" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/></svg>
+      ZONE
+    </button>
+    <button class="tool" type="button" data-tool="line" aria-pressed="false" title="Defensive or offside line">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M2 2v8M24 2v8M2 6h22" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+      LINE
+    </button>
+    <button class="tool" type="button" data-tool="edit" aria-pressed="false" title="Edit a drawing — click it, then drag its ends to reshape or its body to move it">
+      <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><path d="M2 10.5L9.5 3l3 3-7.5 7.5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="14.5" cy="3.5" r="2.4" fill="currentColor"/></svg>
+      EDIT
+    </button>
+    <button class="tool" type="button" data-tool="erase" aria-pressed="false" title="Erase — click any drawing to remove it">
+      <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M6 12h8M2.5 9.5l5-5a1.5 1.5 0 012 0l2.5 2.5a1.5 1.5 0 010 2L8.5 12H5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
+      ERASE
+    </button>
+
+    <span class="tool-sep" aria-hidden="true"></span>
+    <button class="swatch on" type="button" data-ink="#16181b" style="background:#16181b" aria-label="Black ink"></button>
+    <button class="swatch" type="button" data-ink="#d63a2f" style="background:#d63a2f" aria-label="Red ink"></button>
+    <button class="swatch" type="button" data-ink="#2a5bd0" style="background:#2a5bd0" aria-label="Blue ink"></button>
+    <button class="swatch" type="button" data-ink="#1f9d55" style="background:#1f9d55" aria-label="Green ink"></button>
+
+    <span class="tool-sep" aria-hidden="true"></span>
+    <label class="switch" title="Off: lines are straight. On: lines follow your hand."><input type="checkbox" id="tgCurve"><span class="box" aria-hidden="true"></span><span>Curve</span></label>
+    <label class="switch"><input type="checkbox" id="tgSeq" checked><span class="box" aria-hidden="true"></span><span>Sequence</span></label>
+    <span class="spacer"></span>
+    <button class="tool" type="button" id="undoBtn" title="Undo the last drawing">UNDO</button>
+    <button class="tool" type="button" id="clearBtn" title="Remove every drawing">CLEAR</button>
+  </div>
+
+  <section class="frame">
+    <div class="board" id="board">
+      <svg class="pitch" viewBox="0 0 1391 1000" aria-hidden="true" focusable="false">
+        <g transform="translate(62.6 100) scale(1.2055)" fill="none"
+           stroke="#16181b" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="0" y="0" width="1050" height="680"/>
+          <line x1="525" y1="0" x2="525" y2="680"/>
+          <circle cx="525" cy="340" r="91.5"/>
+          <circle cx="525" cy="340" r="6" fill="#16181b" stroke="none"/>
+          <!-- left end -->
+          <rect x="0" y="138.4" width="165" height="403.2"/>
+          <rect x="0" y="248.5" width="55" height="183"/>
+          <circle cx="110" cy="340" r="5" fill="#16181b" stroke="none"/>
+          <path d="M165 266.9 A91.5 91.5 0 0 1 165 413.1"/>
+          <rect x="-20" y="303.4" width="20" height="73.2"/>
+          <!-- right end -->
+          <rect x="885" y="138.4" width="165" height="403.2"/>
+          <rect x="995" y="248.5" width="55" height="183"/>
+          <circle cx="940" cy="340" r="5" fill="#16181b" stroke="none"/>
+          <path d="M885 266.9 A91.5 91.5 0 0 0 885 413.1"/>
+          <rect x="1050" y="303.4" width="20" height="73.2"/>
+          <!-- corner arcs -->
+          <path d="M0 12 A12 12 0 0 0 12 0"/>
+          <path d="M1038 0 A12 12 0 0 1 1050 12"/>
+          <path d="M1050 668 A12 12 0 0 0 1038 680"/>
+          <path d="M0 668 A12 12 0 0 1 12 680"/>
+        </g>
+      </svg>
+
+      <svg class="draw" id="draw" viewBox="0 0 1391 1000" aria-hidden="true" focusable="false"></svg>
+      <div class="capture" id="capture"></div>
+
+      <button class="ball" id="ball" type="button" aria-label="Ball — drag it to a player to give them possession">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" fill="#ffd21e" stroke="#16181b" stroke-width="1.6"/>
+          <path d="M16 7.2l5.2 3.8-2 6.1h-6.4l-2-6.1z" fill="#16181b"/>
+          <path d="M16 2.4l0 4.8M27.6 11.4l-4.4 1.5M23.2 25.4l-3-4.2M12.8 25.4l3-4.2M4.4 11.4l4.4 1.5"
+                stroke="#16181b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </svg>
+      </button>
+      <!-- magnets are injected here -->
+    </div>
+  </section>
+
+  <p class="hint">Try <b>Scenarios</b> for low blocks, presses and set pieces · in <b>MOVE</b> mode drag players and the ball; click a magnet to rate, sub or add a face · pick a <b>drawing tool</b> to sketch runs, passes and zones, then <b>EDIT</b> to reshape one — Esc steps back, Ctrl+Z undoes, Delete removes · <b>Export / Import</b> carry everything as JSON.</p>
+</main>
+
+<aside class="insp" id="insp" aria-label="Player ratings" aria-hidden="true">
+  <div class="insp-top">
+    <span class="insp-badge" id="inspBadge">9</span>
+    <span class="insp-id">
+      <span class="who" id="inspWho">Striker</span>
+      <span class="sub" id="inspSub">Red · player 10 of 11</span>
+    </span>
+    <button class="icon-btn" id="inspPrev" type="button" aria-label="Previous player">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 1.5L3 6l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="icon-btn" id="inspNext" type="button" aria-label="Next player">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 1.5L9 6l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="icon-btn" id="inspClose" type="button" aria-label="Close ratings">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="insp-meta">
+    <label style="flex:2">NAME<input id="inspName" type="text" maxlength="22" aria-label="Player name" placeholder="Unnamed"></label>
+  </div>
+  <div class="insp-meta face-row">
+    <span class="face-prev" id="inspFacePrev" aria-hidden="true"></span>
+    <div class="face-acts">
+      <button class="btn ghost mini" id="inspFaceBtn" type="button">Add face</button>
+      <button class="btn ghost mini" id="inspFaceClear" type="button">Remove</button>
+    </div>
+    <input type="file" id="inspFaceFile" accept="image/*" hidden>
+  </div>
+  <div class="insp-meta">
+    <label>SHIRT<input id="inspNum" type="text" inputmode="numeric" maxlength="2" aria-label="Shirt number"></label>
+    <label>POSITION<input id="inspRole" type="text" maxlength="4" aria-label="Position label"></label>
+  </div>
+
+  <div class="insp-meta">
+    <button class="btn ghost ball-btn" id="inspBall" type="button">Give the ball</button>
+  </div>
+
+  <div class="ovr"><b id="inspOvr">50</b><span>OVERALL<br>AVERAGE OF 9</span></div>
+
+  <div id="inspAttrs"><!-- attribute rows injected here --></div>
+
+  <div class="bench">
+    <div class="bench-hd">
+      <span>BENCH <b id="benchCount">0</b></span>
+      <button class="btn ghost mini" id="benchAdd" type="button">Add sub</button>
+    </div>
+    <p class="bench-empty" id="benchEmpty">No substitutes. Load a squad, or add one to swap players in and out.</p>
+    <ul class="bench-list" id="benchList"></ul>
+  </div>
+
+  <div class="insp-foot">
+    <button class="btn ghost" id="inspReset" type="button">Reset</button>
+    <button class="btn ghost" id="inspCopy" type="button">Copy</button>
+    <button class="btn ghost" id="inspPaste" type="button" disabled>Paste</button>
+  </div>
+</aside>
+
+<div class="modal" id="scenModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="scenTitle">
+    <div class="sheet-hd">
+      <div>
+        <h2 id="scenTitle">Scenarios</h2>
+        <p>Pick a moment of the match, then choose which team shows it.</p>
+      </div>
+      <button class="icon-btn" id="scenClose" type="button" aria-label="Close scenarios">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <ul class="scen-list" id="scenList"></ul>
+
+    <div class="scen-add">
+      <button class="btn ghost" id="scenAddOpen" type="button">＋ Add scenario</button>
+      <div class="scen-form" id="scenForm" hidden>
+        <input id="scenName" type="text" maxlength="34" placeholder="Name, e.g. Overload the left">
+        <input id="scenDesc" type="text" maxlength="90" placeholder="What it shows (optional)">
+        <p class="scen-hint">Save the shape currently on the board:</p>
+        <div class="scen-cap">
+          <button class="btn ghost team-btn red" type="button" data-cap="red">Capture RED</button>
+          <button class="btn ghost team-btn blue" type="button" data-cap="blue">Capture BLUE</button>
+          <button class="btn ghost" id="scenCancel" type="button">Cancel</button>
+        </div>
+        <span class="scen-err" id="scenErr"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+/* pitch-space: x 0 (left goal line) → 100 (right goal line), y 0 (top touchline) → 100 (bottom).
+   Red attacks →, blue attacks ←. Blue positions are the point-mirror (100−x, 100−y).
+   Every formation is stored in red orientation: 11 rows of [x, y, role, number], GK first. */
+const M = {L:4.5, T:10, SX:.91, SY:.82};                 // pitch rect within board, board-%
+const toBoard = p  => ({x: M.L + p.x*M.SX, y: M.T + p.y*M.SY});
+const toPitch = b  => ({x:(b.x - M.L)/M.SX, y:(b.y - M.T)/M.SY});
+const BMIN = 2.4, BMAX = 97.6;                            // keep magnets fully on the whiteboard
+const clampB = v => Math.min(BMAX, Math.max(BMIN, v));
+const r1 = v => Math.round(v*10)/10;
+
+const GK = [2,50,"GK",1];
+const FORMATIONS = {
+  "4-4-2":[GK,[16,12,"LB",3],[16,37,"CB",5],[16,63,"CB",4],[16,88,"RB",2],
+           [33,12,"LM",11],[33,38,"CM",6],[33,62,"CM",8],[33,88,"RM",7],
+           [45,40,"ST",10],[45,60,"ST",9]],
+  "4-3-3":[GK,[16,12,"LB",3],[16,37,"CB",5],[16,63,"CB",4],[16,88,"RB",2],
+           [33,32,"CM",10],[27,50,"DM",6],[33,68,"CM",8],
+           [44,14,"LW",11],[47,50,"ST",9],[44,86,"RW",7]],
+  "4-2-3-1":[GK,[16,12,"LB",3],[16,37,"CB",5],[16,63,"CB",4],[16,88,"RB",2],
+           [26,40,"DM",6],[26,60,"DM",8],
+           [37,14,"LW",11],[36,50,"AM",10],[37,86,"RW",7],[46,50,"ST",9]],
+  "4-4-2 diamond":[GK,[16,12,"LB",3],[16,37,"CB",5],[16,63,"CB",4],[16,88,"RB",2],
+           [26,50,"DM",6],[32,32,"CM",8],[32,68,"CM",7],[39,50,"AM",10],
+           [46,40,"ST",11],[46,60,"ST",9]],
+  "4-1-4-1":[GK,[16,12,"LB",3],[16,37,"CB",5],[16,63,"CB",4],[16,88,"RB",2],
+           [25,50,"DM",6],
+           [35,12,"LM",11],[35,38,"CM",8],[35,62,"CM",10],[35,88,"RM",7],
+           [46,50,"ST",9]],
+  "3-5-2":[GK,[15,30,"CB",6],[15,50,"CB",5],[15,70,"CB",4],
+           [31,8,"LWB",3],[30,35,"CM",10],[26,50,"DM",8],[30,65,"CM",7],[31,92,"RWB",2],
+           [45,42,"ST",11],[45,58,"ST",9]],
+  "3-4-3":[GK,[15,30,"CB",6],[15,50,"CB",5],[15,70,"CB",4],
+           [31,12,"LM",3],[29,38,"CM",8],[29,62,"CM",10],[31,88,"RM",2],
+           [44,18,"LW",11],[47,50,"ST",9],[44,82,"RW",7]],
+  "5-3-2":[GK,[14,8,"LWB",3],[14,30,"CB",6],[14,50,"CB",5],[14,70,"CB",4],[14,92,"RWB",2],
+           [31,32,"CM",10],[27,50,"CM",8],[31,68,"CM",7],
+           [44,42,"ST",11],[44,58,"ST",9]],
+};
+const CUSTOMS = {};                                       // user-saved shapes, same row format
+const specOf = key => CUSTOMS[key] || FORMATIONS[key];
+
+/* ── preset squads ──────────────────────────────────────────
+   Ratings are a judgement call on 2026/27 pre-season form, not official data —
+   edit freely. Order of each squad matches the 4-3-3 slot order below:
+   GK, LB, CB, CB, RB, CM, DM, CM, LW, ST, RW.
+   Rating order: pace, stamina, composure, positioning, strength, aerial, passing, dribbling, finishing. */
+const TEAMS = {
+  "Real Madrid": {
+    formation:"4-3-3",
+    squad:[
+      [ 1,"GK", "Courtois",        [45,60,90,92,78,86,72,45,20]],
+      [17,"LB", "Cucurella",       [80,88,82,84,74,58,80,76,48]],
+      [ 4,"CB", "Huijsen",         [80,78,88,84,80,82,90,70,35]],
+      [16,"CB", "Konaté",          [89,80,70,74,90,88,68,58,30]],
+      [24,"RB", "Dumfries",        [82,88,70,72,86,80,68,66,60]],
+      [ 5,"CM", "Bellingham",      [80,88,88,86,86,76,84,84,82]],
+      [14,"DM", "Tchouaméni",      [72,84,76,82,86,84,76,62,40]],
+      [ 8,"CM", "Valverde",        [86,95,84,84,86,70,82,78,76]],
+      [ 7,"LW", "Vinícius Jr",     [95,82,68,74,70,52,74,94,76]],
+      [10,"ST", "Mbappé",          [96,78,88,90,78,66,74,92,96]],
+      [11,"RW", "Rodrygo",         [88,78,76,78,60,50,80,88,74]],
+    ],
+    bench:[
+      [13,"GK", "Lunin",           [45,58,74,76,74,76,66,42,15]],
+      [22,"CB", "Rüdiger",         [78,76,74,78,92,88,72,58,35]],
+      [ 3,"CB", "Militão",         [88,76,72,76,88,84,70,60,30]],
+      [ 2,"CB", "Asencio",         [76,78,64,68,80,80,64,55,25]],
+      [12,"RB", "Trent",           [72,78,84,60,66,55,96,76,62]],
+      [18,"LB", "Carreras",        [85,86,74,74,70,60,78,76,45]],
+      [23,"LB", "Mendy",           [86,76,68,72,80,64,64,66,30]],
+      [20,"CM", "Bernardo Silva",  [70,88,92,90,66,45,88,90,72]],
+      [ 6,"CM", "Camavinga",       [84,86,76,74,84,66,74,86,45]],
+      [15,"AM", "Arda Güler",      [66,74,86,80,58,45,90,84,76]],
+      [27,"CM", "Thiago Pitarch",  [70,76,74,72,62,50,78,74,50]],
+      [25,"RW", "Yan Diomande",    [94,80,66,68,68,50,68,90,72]],
+      [21,"RW", "Brahim",          [84,78,80,76,58,42,80,90,72]],
+      [ 9,"ST", "Endrick",         [88,74,68,74,78,60,60,80,78]],
+      [19,"ST", "Carlos Espí",     [76,76,66,72,80,76,60,66,74]],
+    ]
+  },
+  "Barcelona": {
+    formation:"4-3-3",
+    squad:[
+      [ 1,"GK", "Joan García",     [50,60,86,90,76,80,76,48,20]],
+      [ 3,"LB", "Balde",           [94,84,68,66,66,50,70,80,45]],
+      [ 5,"CB", "Cubarsí",         [78,78,92,92,70,74,90,74,25]],
+      [24,"CB", "Eric García",     [70,80,84,78,70,70,86,72,45]],
+      [23,"RB", "Koundé",          [86,84,84,84,78,72,78,74,55]],
+      [ 8,"CM", "Pedri",           [70,86,96,92,62,45,95,88,60]],
+      [21,"DM", "De Jong",         [72,82,94,84,76,60,90,90,50]],
+      [20,"CM", "Dani Olmo",       [74,80,84,86,66,60,84,82,78]],
+      [ 7,"LW", "Gordon",          [92,86,74,74,70,52,74,84,76]],
+      [11,"ST", "Raphinha",        [84,90,82,84,72,62,84,84,86]],
+      [10,"RW", "Lamine Yamal",    [88,78,90,82,62,45,88,96,84]],
+    ],
+    bench:[
+      [25,"GK", "Szczęsny",        [42,56,80,80,78,78,68,40,15]],
+      [15,"CB", "Christensen",     [72,72,86,82,76,78,84,66,35]],
+      [18,"LB", "Gerard Martín",   [70,80,76,74,74,66,80,66,40]],
+      [39,"RB", "Héctor Fort",     [80,80,70,70,64,58,72,70,40]],
+      [17,"DM", "Casadó",          [70,84,82,86,72,66,82,70,35]],
+      [22,"DM", "Marc Bernal",     [66,80,84,84,84,84,84,70,35]],
+      [ 6,"CM", "Gavi",            [76,90,74,74,78,55,76,80,55]],
+      [16,"AM", "Fermín López",    [78,86,80,82,68,58,78,82,80]],
+      [14,"LW", "Adeyemi",         [94,80,66,66,66,48,66,84,70]],
+      [19,"RW", "Bardghji",        [84,74,76,72,60,45,74,84,72]],
+    ]
+  },
+};
+
+/* the nine attributes that actually constrain what a shape can do */
+const ATTRS = [
+  {k:"pace",        label:"Pace"},
+  {k:"stamina",     label:"Stamina"},
+  {k:"composure",   label:"Composure"},
+  {k:"positioning", label:"Positioning"},
+  {k:"strength",    label:"Strength"},
+  {k:"aerial",      label:"Aerial ability"},
+  {k:"passing",     label:"Passing range"},
+  {k:"dribbling",   label:"Dribbling"},
+  {k:"finishing",   label:"Finishing"},
+];
+const DEFAULT_RATING = 50;
+const blankRatings = () => Object.fromEntries(ATTRS.map(a => [a.k, DEFAULT_RATING]));
+const clamp100 = v => Math.min(100, Math.max(0, Math.round(v)));
+const overall  = r => Math.round(ATTRS.reduce((s,a) => s + (r[a.k] ?? 0), 0) / ATTRS.length);
+
+/* ── scenarios ──────────────────────────────────────────────
+   A moment of a match rather than a formation: where one team stands when it is
+   pressing, sitting deep, building out, or chasing a goal. Stored in red
+   orientation (own goal at x=0, attacking right) and mirrored for blue.
+   Each row is [x, y, position label]; `ball` is which of the eleven has it.   */
+const SCENARIOS = {
+  "Low block": {
+    desc:"Two banks deep in your own third — concede space, protect the middle.",
+    ball:null,
+    pts:[[4,50,"GK"],[15,12,"LWB"],[13,30,"CB"],[12,50,"CB"],[13,70,"CB"],[15,88,"RWB"],
+         [24,32,"CM"],[23,50,"CM"],[24,68,"CM"],[36,42,"ST"],[36,58,"ST"]]
+  },
+  "Mid block": {
+    desc:"Defend from around halfway. The default shape for most teams out of possession.",
+    ball:null,
+    pts:[[6,50,"GK"],[28,14,"LB"],[26,38,"CB"],[26,62,"CB"],[28,86,"RB"],
+         [40,14,"LM"],[38,38,"CM"],[38,62,"CM"],[40,86,"RM"],[52,42,"ST"],[52,58,"ST"]]
+  },
+  "High press": {
+    desc:"Squeeze up to win it in their half. Note how high the keeper must sweep.",
+    ball:null,
+    pts:[[22,50,"GK"],[52,12,"LB"],[50,38,"CB"],[50,62,"CB"],[52,88,"RB"],
+         [62,32,"CM"],[58,50,"DM"],[62,68,"CM"],[76,16,"LW"],[82,50,"ST"],[76,84,"RW"]]
+  },
+  "Build-up from the back": {
+    desc:"Keeper and split centre-backs, pivot dropping in, full-backs pushed on.",
+    ball:1,
+    pts:[[7,50,"GK"],[16,32,"CB"],[16,68,"CB"],[30,8,"LB"],[30,92,"RB"],[22,50,"DM"],
+         [38,34,"CM"],[38,66,"CM"],[48,12,"LW"],[56,50,"ST"],[48,88,"RW"]]
+  },
+  "Counter-attack": {
+    desc:"Ball just won. Runners break beyond while the rest hold their shape.",
+    ball:6,
+    pts:[[8,50,"GK"],[24,40,"CB"],[24,60,"CB"],[30,14,"LB"],[30,86,"RB"],[36,50,"DM"],
+         [48,38,"CM"],[50,62,"CM"],[64,18,"LW"],[70,50,"ST"],[64,82,"RW"]]
+  },
+  "Ultra attack": {
+    desc:"Chasing a goal late. Everyone forward, keeper on halfway, two men back.",
+    ball:null,
+    pts:[[40,50,"GK"],[58,35,"CB"],[58,65,"CB"],[72,8,"LWB"],[72,92,"RWB"],[70,50,"CM"],
+         [80,32,"AM"],[80,68,"AM"],[88,14,"LW"],[90,50,"ST"],[88,86,"RW"]]
+  },
+  "Park the bus": {
+    desc:"Protecting a lead. Everyone behind the ball, almost no outlet.",
+    ball:null,
+    pts:[[3,50,"GK"],[9,20,"LB"],[8,35,"CB"],[8,50,"CB"],[8,65,"CB"],[9,80,"RB"],
+         [14,28,"CM"],[14,50,"CM"],[14,72,"CM"],[22,40,"ST"],[22,60,"ST"]]
+  },
+  "Wide overload": {
+    desc:"Stack one flank to create a spare man, then switch when they shift across.",
+    ball:4,
+    pts:[[10,50,"GK"],[30,40,"CB"],[30,60,"CB"],[55,10,"LB"],[40,88,"RB"],[45,52,"DM"],
+         [60,26,"CM"],[70,36,"AM"],[82,12,"LW"],[84,52,"ST"],[78,80,"RW"]]
+  },
+  "Defending a corner": {
+    desc:"Posts covered, zonal line on the six-yard box, one man left up as an outlet.",
+    ball:null,
+    pts:[[3,50,"GK"],[5,42,"POST"],[5,58,"POST"],[7,46,"ZON"],[7,54,"ZON"],
+         [9,38,"MRK"],[9,62,"MRK"],[11,50,"MRK"],[16,44,"EDG"],[16,56,"EDG"],[30,50,"OUT"]]
+  },
+  "Attacking a corner": {
+    desc:"Near and far post runners, one on the edge, three held back against the break.",
+    ball:1,
+    pts:[[99,97,"COR"],[90,44,"NR"],[90,58,"FAR"],[88,50,"CEN"],[86,42,"CEN"],[86,58,"CEN"],
+         [80,50,"EDG"],[95,88,"SHT"],[60,30,"CB"],[55,50,"CB"],[60,70,"CB"]]
+  },
+};
+const MY_SCENARIOS = {};                                   // user-saved, same shape
+const allScenarios = () => ({...SCENARIOS, ...MY_SCENARIOS});
+
+const $ = id => document.getElementById(id);
+const board = $("board"), toast = $("toast");
+const sel  = {red:$("selRed"),  blue:$("selBlue")};
+const tDiv = {red:$("teamRed"), blue:$("teamBlue")};
+const pop = $("pop"), popName = $("popName"), popErr = $("popErr");
+const players = new Map();                                // id → {id,team,role,x,y,label,n,el}
+const DEFAULT_SHAPE = {red:"4-4-2", blue:"4-3-3"};          // what Reset returns to
+const lastStock = {red:"4-4-2", blue:"4-3-3"};
+let zTop = 5, toastTimer = 0, delayTimer = 0;
+
+/* ── selects ────────────────────────────────────────────── */
+function rebuildSelects(){
+  for (const t of ["red","blue"]){
+    const prev = sel[t].value;
+    sel[t].innerHTML = "";
+    for (const name of Object.keys(FORMATIONS)) sel[t].add(new Option(name, name));
+    const names = Object.keys(CUSTOMS);
+    if (names.length){
+      const og = document.createElement("optgroup");
+      og.label = "Saved shapes";
+      for (const name of names) og.appendChild(new Option(name, name));
+      sel[t].appendChild(og);
+    }
+    const custom = new Option("Custom","custom");
+    custom.disabled = true; custom.hidden = true;
+    sel[t].add(custom);
+    const keep = [...sel[t].options].some(o => o.value === prev);
+    sel[t].value = keep ? prev : lastStock[t];
+  }
+}
+function refreshChip(t){ tDiv[t].classList.toggle("custom", sel[t].value === "custom"); }
+
+/* ── squads ─────────────────────────────────────────────── */
+const sq = {red:$("sqRed"), blue:$("sqBlue")};
+for (const t of ["red","blue"]){
+  sq[t].add(new Option("No squad", ""));
+  for (const name of Object.keys(TEAMS)) sq[t].add(new Option(name, name));
+  sq[t].addEventListener("change", () => loadSquad(t, sq[t].value));
+}
+
+function loadSquad(team, key, silent){
+  if (!key){                                              // back to plain numbered magnets
+    const shape = sel[team].value === "custom" ? lastStock[team] : sel[team].value;
+    applyFormation(team, shape, true);
+    for (let i = 1; i <= 11; i++){
+      const p = players.get(`${team}-${i}`);
+      p.name = ""; p.face = ""; p.pos = "";
+      p.ratings = blankRatings();
+      render(p);
+    }
+    BENCH[team] = [];
+    refreshInspector();
+    if (!silent) say("Squad cleared");
+    return;
+  }
+  const t = TEAMS[key];
+  if (!t) return;
+
+  sel[team].value = t.formation;                          // shape first, then overwrite the people
+  lastStock[team] = t.formation;
+  applyFormation(team, t.formation, true);
+  refreshChip(team);
+
+  t.squad.forEach(([n, role, name, r], i) => {
+    const p = players.get(`${team}-${i+1}`);
+    p.n = n; p.label = role; p.name = name; p.pos = role; p.face = "";
+    p.ratings = Object.fromEntries(ATTRS.map((a, j) => [a.k, clamp100(r[j])]));
+    render(p);
+  });
+  BENCH[team] = (t.bench || []).map(([n, pos, name, r]) => benchEntry(n, pos, name, r));
+  refreshInspector();
+  if (!silent) say(`${key} loaded into ${team}`);
+}
+
+/* ── magnets ────────────────────────────────────────────── */
+function makeMagnet(id, team, role){
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "magnet " + team;                        // every magnet is fully team-coloured
+  el.dataset.id = id;
+  el.innerHTML = '<span class="face"><span class="ini"></span></span><span class="n"></span><span class="nm"></span>';
+  attachDrag(el);
+  attachKeys(el);
+  board.appendChild(el);
+  return el;
+}
+
+for (const team of ["red","blue"]){
+  for (let i = 0; i < 11; i++){
+    const id = `${team}-${i+1}`;
+    const role = i === 0 ? "GK" : "OUT";
+    players.set(id, {id, team, role, x:0, y:0, label:"", n:0, name:"", face:"", pos:"",
+                     ratings:blankRatings(), el:makeMagnet(id, team, role)});
+  }
+}
+
+function initialsOf(p){
+  const src = (p.name || "").trim();
+  if (!src) return p.n === "" ? "" : String(p.n);
+  const parts = src.split(/\s+/);
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length-1][0] : parts[0].slice(0,2)).toUpperCase();
+}
+
+function shortName(p){                                     // "Lamine Yamal" → "Yamal"
+  const src = (p.name || "").trim();
+  if (!src) return "";
+  const parts = src.split(/\s+/);
+  return parts.length > 1 && src.length > 11 ? parts[parts.length-1] : src;
+}
+
+function render(p){
+  const b = toBoard(p);
+  p.el.style.left = b.x + "%";
+  p.el.style.top  = b.y + "%";
+  p.el.querySelector(".n").textContent = p.n;
+  p.el.querySelector(".nm").textContent = shortName(p);
+
+  const face = p.el.querySelector(".face");
+  face.classList.toggle("photo", !!p.face);
+  face.style.backgroundImage = p.face ? `url("${p.face}")` : "none";
+  face.querySelector(".ini").textContent = initialsOf(p);
+
+  p.el.setAttribute("aria-label", `${p.team} ${p.name || p.label} ${p.n}`);
+  p.el.title = `${p.n} · ${p.name || p.label}${p.name ? " · " + p.label : ""} · OVR ${overall(p.ratings)} — click to rate`;
+
+  if (typeof BALL !== "undefined" && BALL.owner === p.id) renderBall();   // carried ball travels with him
+}
+
+function clearDelaysSoon(){
+  clearTimeout(delayTimer);
+  delayTimer = setTimeout(() => {
+    for (const p of players.values()) p.el.style.transitionDelay = "0ms";
+  }, 850);
+}
+
+function applyFormation(team, key, animate){
+  const spec = specOf(key);
+  if (!spec) return;
+  const keepNumbers = !!sq[team].value;                   // a loaded squad keeps its shirts and names
+  spec.forEach((s, i) => {
+    const p = players.get(`${team}-${i+1}`);
+    let [x, y, label, n] = s;
+    if (team === "blue"){ x = 100 - x; y = 100 - y; }     // point-mirror keeps L/R labels true
+    Object.assign(p, {x, y, label});
+    if (!keepNumbers) p.n = n;
+    p.el.style.transitionDelay = animate ? (i*24)+"ms" : "0ms";
+    render(p);
+  });
+  clearDelaysSoon();
+  if (current && current.team === team) paintHeader();
+}
+
+function markCustom(team){
+  if (sel[team].value !== "custom"){
+    sel[team].value = "custom";
+    refreshChip(team);
+  }
+}
+
+/* ── dragging ───────────────────────────────────────────── */
+function attachDrag(el){
+  let off = null, start = null, moved = false;
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const p = players.get(el.dataset.id);
+    const r = board.getBoundingClientRect();
+    const bx = (e.clientX - r.left)/r.width*100;
+    const by = (e.clientY - r.top)/r.height*100;
+    const cur = toBoard(p);
+    off = {x:bx - cur.x, y:by - cur.y};
+    start = {x:e.clientX, y:e.clientY};
+    moved = false;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("drag");
+    el.style.zIndex = ++zTop;
+  });
+  el.addEventListener("pointermove", e => {
+    if (!off) return;
+    if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;  // tap tolerance
+    moved = true;
+    const p = players.get(el.dataset.id);
+    const r = board.getBoundingClientRect();
+    const bx = clampB((e.clientX - r.left)/r.width*100  - off.x);
+    const by = clampB((e.clientY - r.top)/r.height*100 - off.y);
+    Object.assign(p, toPitch({x:bx, y:by}));
+    render(p);
+    markCustom(p.team);
+  });
+  const end = () => { off = null; el.classList.remove("drag"); };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+  el.addEventListener("click", () => {                     // a tap (or Enter/Space) opens ratings
+    if (moved) { moved = false; return; }
+    openInspector(el.dataset.id);
+  });
+}
+
+function attachKeys(el){
+  el.addEventListener("keydown", e => {
+    const step = e.shiftKey ? 0.4 : 1.6;
+    const d = {ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step]}[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const p = players.get(el.dataset.id);
+    const b = toBoard(p);
+    Object.assign(p, toPitch({x:clampB(b.x + d[0]*M.SX), y:clampB(b.y + d[1]*M.SY)}));
+    render(p);
+    markCustom(p.team);
+  });
+}
+
+/* ── save a custom shape ────────────────────────────────── */
+function capture(team){                                    // current XI, normalised to red orientation
+  const rows = [];
+  for (let i = 1; i <= 11; i++){
+    const p = players.get(`${team}-${i}`);
+    let x = p.x, y = p.y;
+    if (team === "blue"){ x = 100 - x; y = 100 - y; }
+    rows.push([r1(x), r1(y), p.label || "", p.n ?? ""]);
+  }
+  return rows;
+}
+
+function suggestName(){
+  let n = 1;
+  while (CUSTOMS[`My shape ${n}`] || FORMATIONS[`My shape ${n}`]) n++;
+  return `My shape ${n}`;
+}
+
+function openPop(team){
+  pop.dataset.team = team;
+  popName.value = suggestName();
+  popErr.textContent = "";
+  pop.classList.remove("has-err");
+  tDiv[team].appendChild(pop);
+  pop.hidden = false;
+  popName.focus();
+  popName.select();
+}
+function closePop(){ pop.hidden = true; }
+
+function doSave(){
+  const team = pop.dataset.team;
+  const name = popName.value.trim();
+  if (!name){ popErr.textContent = "Give the shape a name."; pop.classList.add("has-err"); return; }
+  if (FORMATIONS[name]){ popErr.textContent = "That name belongs to a built-in formation."; pop.classList.add("has-err"); return; }
+  const existed = !!CUSTOMS[name];
+  CUSTOMS[name] = capture(team);
+  rebuildSelects();
+  sel[team].value = name;
+  lastStock[team] = name;
+  refreshChip("red"); refreshChip("blue");
+  closePop();
+  say(existed ? `Updated “${name}”` : `Saved “${name}” — it's now in both teams' lists`);
+}
+
+document.querySelectorAll(".save-chip").forEach(chip =>
+  chip.addEventListener("click", () => openPop(chip.dataset.team)));
+$("popSave").addEventListener("click", doSave);
+$("popCancel").addEventListener("click", closePop);
+popName.addEventListener("keydown", e => {
+  if (e.key === "Enter"){ e.preventDefault(); doSave(); }
+  if (e.key === "Escape") closePop();
+});
+document.addEventListener("pointerdown", e => {
+  if (!pop.hidden && !pop.contains(e.target) && !e.target.closest(".save-chip")) closePop();
+});
+
+/* ── ratings inspector ──────────────────────────────────── */
+const insp = $("insp");
+const rows = new Map();                                    // attr key → {range, num}
+let current = null, clipboard = null;
+
+(function buildRows(){
+  const host = $("inspAttrs");
+  for (const a of ATTRS){
+    const wrap = document.createElement("div");
+    wrap.className = "attr";
+    wrap.innerHTML =
+      `<div class="attr-hd"><span class="name">${a.label}</span>` +
+      `<input type="number" min="0" max="100" step="1" aria-label="${a.label} rating out of 100"></div>` +
+      `<input type="range" min="0" max="100" step="1" aria-label="${a.label} slider">`;
+    const num = wrap.querySelector('input[type="number"]');
+    const range = wrap.querySelector('input[type="range"]');
+
+    const commit = v => {
+      if (!current) return;
+      current.ratings[a.k] = clamp100(v);
+      paintRow(a.k);
+      paintOverall();
+      render(current);
+    };
+    range.addEventListener("input", () => commit(range.value));
+    num.addEventListener("input", () => {
+      if (num.value === "") return;                        // let the field be emptied while typing
+      commit(num.value);
+    });
+    num.addEventListener("blur", () => { if (current) paintRow(a.k); });
+
+    rows.set(a.k, {num, range});
+    host.appendChild(wrap);
+  }
+})();
+
+function paintRow(k){
+  const v = current.ratings[k];
+  const {num, range} = rows.get(k);
+  if (document.activeElement !== num) num.value = v;
+  range.value = v;
+  range.style.setProperty("--pct", v + "%");
+  range.style.setProperty("--fill", current.team === "red" ? "var(--red)" : "var(--blue)");
+}
+
+function paintOverall(){
+  $("inspOvr").textContent = overall(current.ratings);
+}
+
+function paintHeader(){
+  const badge = $("inspBadge");
+  badge.className = "insp-badge " + current.team;
+  badge.textContent = current.n;
+  $("inspWho").textContent = current.name || current.label || "Player";
+  const idx = +current.id.split("-")[1];
+  $("inspSub").textContent = `${current.team} · ${current.label || "—"} · ${idx} of 11`;
+  $("inspName").value = current.name;
+  $("inspNum").value = current.n;
+  $("inspRole").value = current.label;
+  paintFacePrev();
+}
+
+function openInspector(id){
+  const p = players.get(id);
+  if (!p) return;
+  if (current) current.el.classList.remove("sel");
+  current = p;
+  p.el.classList.add("sel");
+  paintHeader();
+  for (const a of ATTRS) paintRow(a.k);
+  paintOverall();
+  renderBench();
+  paintBallBtn();
+  insp.classList.add("open");
+  insp.setAttribute("aria-hidden", "false");
+}
+
+function closeInspector(){
+  if (current) current.el.classList.remove("sel");
+  current = null;
+  insp.classList.remove("open");
+  insp.setAttribute("aria-hidden", "true");
+}
+
+function step(dir){
+  if (!current) return;
+  const [team, nStr] = current.id.split("-");
+  const next = ((+nStr - 1 + dir) + 11) % 11 + 1;
+  openInspector(`${team}-${next}`);
+}
+
+$("inspClose").addEventListener("click", closeInspector);
+$("inspPrev").addEventListener("click", () => step(-1));
+$("inspNext").addEventListener("click", () => step(1));
+
+$("inspName").addEventListener("input", e => {
+  if (!current) return;
+  current.name = e.target.value;
+  $("inspWho").textContent = current.name || current.label || "Player";
+  paintFacePrev();
+  render(current);
+});
+
+/* face: uploaded images are squared and shrunk to 128px so exports stay small */
+function paintFacePrev(){
+  const prev = $("inspFacePrev");
+  prev.style.backgroundImage = current && current.face ? `url("${current.face}")` : "none";
+  prev.textContent = current && current.face ? "" : initialsOf(current || {name:"", n:""});
+  $("inspFaceBtn").textContent = current && current.face ? "Change face" : "Add face";
+  $("inspFaceClear").disabled = !(current && current.face);
+}
+
+function squareTo128(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = reject;
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const S = 128, c = document.createElement("canvas");
+        c.width = c.height = S;
+        const ctx = c.getContext("2d");
+        const side = Math.min(img.width, img.height);          // centre crop to a square
+        ctx.drawImage(img, (img.width-side)/2, (img.height-side)/2, side, side, 0, 0, S, S);
+        resolve(c.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+$("inspFaceBtn").addEventListener("click", () => $("inspFaceFile").click());
+$("inspFaceFile").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f || !current) return;
+  try {
+    current.face = await squareTo128(f);
+    paintFacePrev();
+    render(current);
+    if (!toggles["show-face"].checked){                       // turn the layer on so the work shows
+      toggles["show-face"].checked = true;
+      applyShow();
+    }
+    say("Face added");
+  } catch { say("Couldn't read that image — try a JPG or PNG."); }
+});
+$("inspFaceClear").addEventListener("click", () => {
+  if (!current) return;
+  current.face = "";
+  paintFacePrev();
+  render(current);
+});
+$("inspNum").addEventListener("input", e => {
+  if (!current) return;
+  const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+  e.target.value = v;
+  current.n = v === "" ? "" : +v;
+  $("inspBadge").textContent = current.n;
+  render(current);
+});
+$("inspRole").addEventListener("input", e => {
+  if (!current) return;
+  current.label = e.target.value.toUpperCase().slice(0, 4);
+  e.target.value = current.label;
+  $("inspWho").textContent = current.name || current.label || "Player";
+  const idx = +current.id.split("-")[1];
+  $("inspSub").textContent = `${current.team} · ${current.label || "—"} · ${idx} of 11`;
+  render(current);
+});
+
+$("inspReset").addEventListener("click", () => {
+  if (!current) return;
+  current.ratings = blankRatings();
+  for (const a of ATTRS) paintRow(a.k);
+  paintOverall();
+  render(current);
+  say("Ratings reset to 50");
+});
+$("inspCopy").addEventListener("click", () => {
+  if (!current) return;
+  clipboard = {...current.ratings};
+  $("inspPaste").disabled = false;
+  say(`Copied ${current.label || "player"}'s ratings — open another player to paste`);
+});
+$("inspPaste").addEventListener("click", () => {
+  if (!current || !clipboard) return;
+  current.ratings = {...clipboard};
+  for (const a of ATTRS) paintRow(a.k);
+  paintOverall();
+  render(current);
+  say("Ratings pasted");
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && current) closeInspector();
+});
+
+function refreshInspector(){                               // after an import replaces the data
+  if (!current) return;
+  paintHeader();
+  for (const a of ATTRS) paintRow(a.k);
+  paintOverall();
+  renderBench();
+  paintBallBtn();
+}
+
+/* ── controls ───────────────────────────────────────────── */
+for (const t of ["red","blue"]){
+  sel[t].addEventListener("change", () => {
+    lastStock[t] = sel[t].value;
+    applyFormation(t, sel[t].value, true);
+    refreshChip(t);
+  });
+}
+
+/* ── drawing layer ──────────────────────────────────────────
+   Standard coaching notation. Shapes are stored in pitch coords like players,
+   so a drawing means the same thing at any screen size and survives export.
+     run      solid arrow          — movement without the ball
+     pass     dashed arrow         — the ball travels, the player doesn't
+     dribble  wavy arrow           — carrying the ball
+     shot     double-line arrow    — a strike at goal
+     hold     arrow with end bar   — move here and stay
+     link     dotted, no head      — marking job or passing lane
+     zone     shaded rectangle     — space to attack, press, or protect
+     line     barred straight line — defensive height / offside line          */
+const drawSvg = $("draw"), capLayer = $("capture");
+const SHAPES = [];                                         // {id,type,pts:[{x,y}],ink}
+const ARROWED = new Set(["run","pass","dribble","shot","lob"]);
+const CURVABLE = new Set(["run","pass","dribble","shot","hold","link"]);
+let tool = "none", ink = "#16181b", shapeSeq = 0, drawing = null, curveOn = false;
+let selIdx = null, editDrag = null;                        // the shape being edited, and the live drag
+/* Curve off → these tools snap start-to-end as a straight line; on → they follow the hand.
+   A lob is always arced: the bow IS the notation, so it never straightens. */
+const isFreehand = t => curveOn && CURVABLE.has(t);
+
+const VX = b => b.x * 13.91, VY = b => b.y * 10;           // board-% → viewBox units
+const toView = p => { const b = toBoard(p); return {x:VX(b), y:VY(b)}; };
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function smoothD(v){                                       // quadratic smoothing through sampled points
+  if (v.length < 2) return "";
+  if (v.length === 2) return `M${v[0].x} ${v[0].y}L${v[1].x} ${v[1].y}`;
+  let d = `M${v[0].x} ${v[0].y}`;
+  for (let i = 1; i < v.length - 1; i++){
+    const mx = (v[i].x + v[i+1].x)/2, my = (v[i].y + v[i+1].y)/2;
+    d += `Q${v[i].x} ${v[i].y} ${mx} ${my}`;
+  }
+  const last = v[v.length-1];
+  return d + `L${last.x} ${last.y}`;
+}
+
+function wavyD(v, amp = 8, wave = 34){                     // ripple along the path for dribbles
+  const pts = [];
+  let total = 0;
+  for (let i = 0; i < v.length - 1; i++) total += dist(v[i], v[i+1]);
+  if (total < 1) return smoothD(v);
+
+  let carried = 0;
+  for (let i = 0; i < v.length - 1; i++){
+    const a = v[i], b = v[i+1];
+    const seg = dist(a, b);
+    if (seg < 0.001) continue;
+    const ux = (b.x - a.x)/seg, uy = (b.y - a.y)/seg;      // unit vector + its normal
+    for (let s = 0; s < seg; s += 3){
+      const t = carried + s;
+      // fade the wave in at the foot and out before the arrowhead
+      const taper = Math.max(0, Math.min(1, t/14, (total - t)/26));
+      const off = Math.sin(t / wave * Math.PI * 2) * amp * taper;
+      pts.push({x: a.x + ux*s - uy*off, y: a.y + uy*s + ux*off});
+    }
+    carried += seg;
+  }
+  pts.push(v[v.length-1]);
+  return pts.length > 1 ? smoothD(pts) : "";
+}
+
+/* A lofted pass bows away from the straight line between the two players, the way
+   the ball actually travels. The bulge always leans "up" the screen so the arc
+   never gets confused with a curved ground pass. */
+function lobArc(v, bow = 0.24){
+  const a = v[0], b = v[v.length-1];
+  const len = dist(a, b) || 1;
+  let nx = -(b.y - a.y)/len, ny = (b.x - a.x)/len;
+  if (ny > 0 || (Math.abs(ny) < 0.001 && nx > 0)){ nx = -nx; ny = -ny; }   // pick the upward normal
+  const mid = {x:(a.x + b.x)/2, y:(a.y + b.y)/2};
+  const ctrl = {x: mid.x + nx*len*bow, y: mid.y + ny*len*bow};
+  return {a, b, ctrl, d:`M${a.x} ${a.y}Q${ctrl.x} ${ctrl.y} ${b.x} ${b.y}`};
+}
+
+function samplePts(a, ctrl, b, n = 16){                    // points along the arc, for hit-testing
+  const out = [];
+  for (let i = 0; i <= n; i++){
+    const t = i/n, m = 1 - t;
+    out.push({x: m*m*a.x + 2*m*t*ctrl.x + t*t*b.x, y: m*m*a.y + 2*m*t*ctrl.y + t*t*b.y});
+  }
+  return out;
+}
+
+function endAngle(v){
+  for (let i = v.length - 1; i > 0; i--){
+    const d = dist(v[i], v[i-1]);
+    if (d > 0.5) return Math.atan2(v[i].y - v[i-1].y, v[i].x - v[i-1].x);
+  }
+  return 0;
+}
+
+function el(tag, attrs){
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, val] of Object.entries(attrs)) n.setAttribute(k, val);
+  return n;
+}
+
+function arrowHead(v, size, color){
+  const a = endAngle(v), tip = v[v.length-1];
+  const back = a + Math.PI, spread = 0.42;
+  const p1 = {x: tip.x + Math.cos(back - spread)*size, y: tip.y + Math.sin(back - spread)*size};
+  const p2 = {x: tip.x + Math.cos(back + spread)*size, y: tip.y + Math.sin(back + spread)*size};
+  return el("path", {d:`M${tip.x} ${tip.y}L${p1.x} ${p1.y}L${p2.x} ${p2.y}Z`, fill:color});
+}
+
+function endBar(v, half, color, w){                        // the "stop here" bar
+  const a = endAngle(v), tip = v[v.length-1], n = a + Math.PI/2;
+  return el("path", {
+    d:`M${tip.x + Math.cos(n)*half} ${tip.y + Math.sin(n)*half}L${tip.x - Math.cos(n)*half} ${tip.y - Math.sin(n)*half}`,
+    stroke:color, "stroke-width":w, "stroke-linecap":"round", fill:"none"
+  });
+}
+
+function offsetPath(v, off){                               // parallel copy, for the double-line shot
+  const out = [];
+  for (let i = 0; i < v.length; i++){
+    let a = i, b = i;                                      // reach outward for genuinely distinct
+    while (a > 0 && dist(v[a], v[i]) < 0.001) a--;         // neighbours, or the normal is undefined
+    while (b < v.length - 1 && dist(v[b], v[i]) < 0.001) b++;
+    if (a === b){ out.push({...v[i]}); continue; }
+    const len = dist(v[a], v[b]) || 1;
+    const nx = -(v[b].y - v[a].y)/len, ny = (v[b].x - v[a].x)/len;
+    out.push({x: v[i].x + nx*off, y: v[i].y + ny*off});
+  }
+  return out;
+}
+
+function renderShapes(preview){
+  drawSvg.innerHTML = "";
+  const all = preview ? SHAPES.concat([preview]) : SHAPES;
+
+  all.forEach(s => {
+    const v = s.pts.map(toView);
+    if (v.length < 2) return;
+    const g = el("g", {});
+    const W = 5.5, color = s.ink;
+
+    if (s.type === "zone"){
+      const x = Math.min(v[0].x, v[1].x), y = Math.min(v[0].y, v[1].y);
+      const w = Math.abs(v[1].x - v[0].x), h = Math.abs(v[1].y - v[0].y);
+      g.appendChild(el("rect", {x, y, width:w, height:h, rx:8, fill:color, "fill-opacity":.16,
+                                stroke:color, "stroke-width":4, "stroke-dasharray":"14 9"}));
+    } else if (s.type === "line"){
+      g.appendChild(el("path", {d:`M${v[0].x} ${v[0].y}L${v[1].x} ${v[1].y}`,
+                                stroke:color, "stroke-width":W, "stroke-linecap":"round", fill:"none"}));
+      g.appendChild(endBar([v[1], v[0]], 16, color, W));    // a cap at each end
+      g.appendChild(endBar([v[0], v[1]], 16, color, W));
+    } else if (s.type === "lob"){
+      const arc = lobArc(v);
+      g.appendChild(el("path", {d:arc.d, stroke:color, "stroke-width":W, fill:"none",
+                                "stroke-linecap":"round", "stroke-dasharray":"26 11 6 11"}));
+      g.appendChild(arrowHead([arc.ctrl, arc.b], 21, color));  // head aligned with the descent
+    } else {
+      const d = s.type === "dribble" ? wavyD(v) : smoothD(v);
+      const dash = s.type === "pass" ? "20 13" : s.type === "link" ? "3 16" : null;
+      const mk = extra => el("path", Object.assign({d, stroke:color, "stroke-width":W, fill:"none",
+                                                    "stroke-linecap":"round", "stroke-linejoin":"round"}, extra));
+      if (s.type === "shot"){                               // two rails instead of one line
+        const w2 = 4.2;
+        for (const o of [-7.5, 7.5]){
+          const par = offsetPath(v, o);
+          g.appendChild(el("path", {d:smoothD(par), stroke:color, "stroke-width":w2, fill:"none",
+                                    "stroke-linecap":"round", "stroke-linejoin":"round"}));
+        }
+      } else {
+        g.appendChild(mk(dash ? {"stroke-dasharray":dash} : {}));
+      }
+      if (ARROWED.has(s.type)) g.appendChild(arrowHead(v, s.type === "shot" ? 28 : 21, color));
+      if (s.type === "hold")   g.appendChild(endBar(v, 15, color, W));
+    }
+
+    // sequence badge at the start of the move
+    if (s.n){
+      const seq = el("g", {class:"seq"});
+      seq.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:13, fill:color}));
+      const t = el("text", {x:v[0].x, y:v[0].y, fill:"#fff", "font-family":"system-ui, sans-serif",
+                            "font-size":16, "font-weight":700,
+                            "text-anchor":"middle", "dominant-baseline":"central"});
+      t.textContent = s.n;
+      seq.appendChild(t);
+      g.appendChild(seq);
+    }
+    drawSvg.appendChild(g);
+  });
+
+  // handles for the shape being edited
+  if (tool === "edit" && selIdx !== null && SHAPES[selIdx]){
+    const s = SHAPES[selIdx];
+    const v = s.pts.map(toView);
+    const hg = el("g", {});
+
+    if (s.type === "zone"){                                // outline the box being resized
+      const x = Math.min(v[0].x, v[1].x), y = Math.min(v[0].y, v[1].y);
+      hg.appendChild(el("rect", {x, y, width:Math.abs(v[1].x-v[0].x), height:Math.abs(v[1].y-v[0].y),
+                                 rx:8, fill:"none", stroke:"#f2c21f", "stroke-width":3.5}));
+    } else {
+      const d = s.type === "lob" ? lobArc(v).d : s.type === "dribble" ? smoothD(v) : smoothD(v);
+      hg.appendChild(el("path", {d, stroke:"#f2c21f", "stroke-width":16, fill:"none",
+                                 "stroke-opacity":.35, "stroke-linecap":"round"}));
+    }
+    for (const h of handlePoints(s).map(toView)){
+      hg.appendChild(el("circle", {cx:h.x, cy:h.y, r:11, fill:"#fff", stroke:"#16181b", "stroke-width":3}));
+    }
+    drawSvg.appendChild(hg);
+  }
+}
+
+/* the draggable points of a shape: the four corners of a zone, otherwise its two ends */
+function handlePoints(s){
+  if (s.type === "zone"){
+    const [a, b] = s.pts;
+    return [{x:a.x, y:a.y}, {x:b.x, y:a.y}, {x:b.x, y:b.y}, {x:a.x, y:b.y}];
+  }
+  return [s.pts[0], s.pts[s.pts.length-1]];
+}
+
+/* Dragging an end doesn't just move that point — it stretches and swings the whole
+   path around the far end, so a curve keeps its shape while you extend, shorten
+   or re-aim it. For a straight two-point line this reduces to moving the end. */
+function reshape(orig, type, hIdx, p){
+  if (type === "zone"){
+    const a = {...orig[0]}, b = {...orig[1]};
+    if (hIdx === 0){ a.x = p.x; a.y = p.y; }
+    else if (hIdx === 1){ b.x = p.x; a.y = p.y; }
+    else if (hIdx === 2){ b.x = p.x; b.y = p.y; }
+    else { a.x = p.x; b.y = p.y; }
+    return [a, b];
+  }
+  const movingLast = hIdx === 1;
+  const anchor = movingLast ? orig[0] : orig[orig.length-1];
+  const moving = movingLast ? orig[orig.length-1] : orig[0];
+
+  const oldLen = Math.hypot(moving.x - anchor.x, moving.y - anchor.y);
+  const newLen = Math.hypot(p.x - anchor.x, p.y - anchor.y);
+  if (oldLen < 0.01) return orig.map(q => ({x:q.x + (p.x - moving.x), y:q.y + (p.y - moving.y)}));
+
+  const scale = newLen / oldLen;
+  const rot = Math.atan2(p.y - anchor.y, p.x - anchor.x) - Math.atan2(moving.y - anchor.y, moving.x - anchor.x);
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  return orig.map(q => {
+    const dx = (q.x - anchor.x) * scale, dy = (q.y - anchor.y) * scale;
+    return {x: anchor.x + dx*cos - dy*sin, y: anchor.y + dx*sin + dy*cos};
+  });
+}
+
+/* Distance from a click to a shape, so Erase can find what you meant. Measured in
+   view units against the shape as drawn — the pitch is wider than it is tall, so
+   comparing in pitch coords would misjudge diagonals and the lob's arc. */
+function shapeDistance(s, click){
+  const p = toView(click);
+  const v = s.pts.map(toView);
+
+  if (s.type === "zone"){
+    const x0 = Math.min(v[0].x, v[1].x), x1 = Math.max(v[0].x, v[1].x);
+    const y0 = Math.min(v[0].y, v[1].y), y1 = Math.max(v[0].y, v[1].y);
+    if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) return 0;
+    return Math.hypot(Math.max(x0 - p.x, 0, p.x - x1), Math.max(y0 - p.y, 0, p.y - y1));
+  }
+
+  let pts = v;
+  if (s.type === "lob" && v.length >= 2){                  // follow the arc, not the chord
+    const arc = lobArc(v);
+    pts = samplePts(arc.a, arc.ctrl, arc.b, 24);
+  }
+
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i++){
+    const a = pts[i], b = pts[i+1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const L = dx*dx + dy*dy;
+    const t = L ? Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / L)) : 0;
+    best = Math.min(best, Math.hypot(p.x - (a.x + t*dx), p.y - (a.y + t*dy)));
+  }
+  return best;
+}
+
+function renumber(){
+  let i = 0;
+  for (const s of SHAPES) s.n = s.type === "zone" || s.type === "line" ? null : ++i;
+}
+
+/* ── tool selection ─────────────────────────────────────── */
+function setTool(t){
+  tool = t;
+  for (const b of document.querySelectorAll(".tool[data-tool]")){
+    const on = b.dataset.tool === t;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  }
+  document.body.classList.toggle("drawing", t !== "none");
+  document.body.classList.toggle("erasing", t === "erase" || t === "edit");
+  if (t !== "edit" && selIdx !== null){ selIdx = null; renderShapes(); }
+  if (t !== "none") closeInspector();
+}
+for (const b of document.querySelectorAll(".tool[data-tool]"))
+  b.addEventListener("click", () => setTool(b.dataset.tool));
+
+for (const s of document.querySelectorAll(".swatch")){
+  s.addEventListener("click", () => {
+    ink = s.dataset.ink;
+    for (const o of document.querySelectorAll(".swatch")) o.classList.toggle("on", o === s);
+  });
+}
+
+$("tgCurve").addEventListener("change", e => { curveOn = e.target.checked; });
+$("tgSeq").addEventListener("change", e =>
+  document.body.classList.toggle("show-seq", e.target.checked));
+document.body.classList.add("show-seq");
+
+$("undoBtn").addEventListener("click", () => {
+  if (!SHAPES.length){ say("Nothing to undo"); return; }
+  SHAPES.pop();
+  selIdx = null;
+  renumber(); renderShapes();
+  say("Undone");
+});
+$("clearBtn").addEventListener("click", () => {
+  if (!SHAPES.length){ say("Nothing to clear"); return; }
+  SHAPES.length = 0;
+  selIdx = null;
+  renderShapes();
+  say("Drawings cleared");
+});
+
+/* ── drawing input ──────────────────────────────────────── */
+function atPointer(e){
+  const r = board.getBoundingClientRect();
+  return toPitch({
+    x: clampB((e.clientX - r.left)/r.width*100),
+    y: clampB((e.clientY - r.top)/r.height*100)
+  });
+}
+
+capLayer.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  const p = atPointer(e);
+
+  if (tool === "edit"){
+    const view = toView(p);
+
+    if (selIdx !== null && SHAPES[selIdx]){                // a handle takes priority over the shape
+      const hs = handlePoints(SHAPES[selIdx]).map(toView);
+      for (let i = 0; i < hs.length; i++){
+        if (Math.hypot(hs[i].x - view.x, hs[i].y - view.y) <= 26){
+          capLayer.setPointerCapture(e.pointerId);
+          editDrag = {mode:"handle", handle:i, orig:SHAPES[selIdx].pts.map(q => ({...q}))};
+          return;
+        }
+      }
+    }
+
+    let hit = null, best = 34;
+    for (let i = SHAPES.length - 1; i >= 0; i--){
+      const d = shapeDistance(SHAPES[i], p);
+      if (d < best){ best = d; hit = i; break; }
+    }
+    if (hit === null){                                     // clicking away puts the pen down
+      if (selIdx !== null){ selIdx = null; renderShapes(); }
+      return;
+    }
+    selIdx = hit;
+    capLayer.setPointerCapture(e.pointerId);
+    editDrag = {mode:"body", from:p, orig:SHAPES[hit].pts.map(q => ({...q}))};
+    renderShapes();
+    return;
+  }
+
+  if (tool === "erase"){
+    let hit = null, best = 34;                             // ~2.4% of the pitch width of slack
+    for (let i = SHAPES.length - 1; i >= 0; i--){          // topmost first
+      const d = shapeDistance(SHAPES[i], p);
+      if (d < best){ best = d; hit = i; break; }
+    }
+    if (hit === null){ say("Nothing there — click on a drawing to erase it"); return; }
+    SHAPES.splice(hit, 1);
+    selIdx = null;
+    renumber(); renderShapes();
+    say("Erased");
+    return;
+  }
+
+  capLayer.setPointerCapture(e.pointerId);
+  drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[p, p], n:null};
+  renderShapes(drawing);
+});
+
+capLayer.addEventListener("pointermove", e => {
+  if (editDrag && selIdx !== null){
+    const p = atPointer(e);
+    const s = SHAPES[selIdx];
+    if (editDrag.mode === "handle"){
+      s.pts = reshape(editDrag.orig, s.type, editDrag.handle, p);
+    } else {
+      const dx = p.x - editDrag.from.x, dy = p.y - editDrag.from.y;
+      s.pts = editDrag.orig.map(q => ({x:q.x + dx, y:q.y + dy}));
+    }
+    renderShapes();
+    return;
+  }
+  if (!drawing) return;
+  const p = atPointer(e);
+  if (isFreehand(drawing.type)){
+    const last = drawing.pts[drawing.pts.length - 1];
+    if (dist(last, p) < 1.1) return;                       // thin the trail as it's captured
+    drawing.pts.push(p);
+  } else {
+    drawing.pts[1] = p;                                    // zone and line are corner-to-corner
+  }
+  renderShapes(drawing);
+});
+
+function finishDrawing(){
+  if (editDrag){ editDrag = null; return; }
+  if (!drawing) return;
+  const s = drawing;
+  drawing = null;
+  const span = dist(s.pts[0], s.pts[s.pts.length-1]);
+  const tiny = s.type === "zone" ? Math.abs(s.pts[0].x - s.pts[1].x) < 3 || Math.abs(s.pts[0].y - s.pts[1].y) < 3
+                                 : span < 2.5;
+  if (tiny){ renderShapes(); return; }                     // ignore accidental taps
+  SHAPES.push(s);
+  renumber(); renderShapes();
+}
+capLayer.addEventListener("pointerup", finishDrawing);
+capLayer.addEventListener("pointercancel", finishDrawing);
+
+document.addEventListener("keydown", e => {
+  const t = e.target;
+  if (t && typeof t.matches === "function" && t.matches("input, select, textarea")) return;
+  if (e.key === "Escape" && !scenModal.hidden){ closeScen(); return; }
+  if (e.key === "Escape" && tool !== "none"){
+    if (tool === "edit" && selIdx !== null){ selIdx = null; renderShapes(); return; }
+    setTool("none"); return;
+  }
+  if ((e.key === "Delete" || e.key === "Backspace") && tool === "edit" && selIdx !== null){
+    e.preventDefault();
+    SHAPES.splice(selIdx, 1);
+    selIdx = null;
+    renumber(); renderShapes();
+    say("Drawing deleted");
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); $("undoBtn").click(); }
+});
+
+/* ── scenario library ───────────────────────────────────── */
+const scenModal = $("scenModal");
+
+function applyScenario(key, team){
+  const sc = allScenarios()[key];
+  if (!sc) return;
+  const keepPeople = !!sq[team].value;                     // a loaded squad keeps its names and shirts
+
+  sc.pts.forEach(([x, y, label], i) => {
+    const p = players.get(`${team}-${i+1}`);
+    if (!p) return;
+    if (team === "blue"){ x = 100 - x; y = 100 - y; }
+    p.x = x; p.y = y;
+    if (label) p.label = label;
+    if (!keepPeople) p.n = i + 1;
+    p.el.style.transitionDelay = (i*26) + "ms";
+    render(p);
+  });
+  clearDelaysSoon();
+
+  sel[team].value = "custom";                              // a scenario is a shape, not a formation
+  refreshChip(team);
+  if (sc.ball) giveBall(`${team}-${sc.ball}`); else giveBall(null);
+  if (current && current.team === team) refreshInspector();
+  closeScen();
+  say(`${key} — ${team}`);
+}
+
+function renderScenarios(){
+  const list = $("scenList");
+  list.innerHTML = "";
+  const all = allScenarios();
+
+  for (const [name, sc] of Object.entries(all)){
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "scen-row";
+    row.innerHTML = `<span class="txt"><span class="nm3"></span><span class="ds"></span></span>`;
+    row.querySelector(".nm3").textContent = name;
+    row.querySelector(".ds").textContent = sc.desc || "";
+
+    const pick = document.createElement("span");
+    pick.className = "pick";
+    for (const team of ["red","blue"]){
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `team-btn ${team}`;
+      b.textContent = team.toUpperCase();
+      b.title = `Show "${name}" with the ${team} team`;
+      b.addEventListener("click", () => applyScenario(name, team));
+      pick.appendChild(b);
+    }
+    row.appendChild(pick);
+
+    if (MY_SCENARIOS[name]){                               // only your own can be deleted
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "del2";
+      del.setAttribute("aria-label", `Delete the ${name} scenario`);
+      del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+      del.addEventListener("click", () => {
+        delete MY_SCENARIOS[name];
+        renderScenarios();
+        say(`“${name}” deleted`);
+      });
+      row.appendChild(del);
+    }
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+function openScen(){
+  renderScenarios();
+  scenModal.hidden = false;
+  $("scenForm").hidden = true;
+  $("scenErr").textContent = "";
+}
+function closeScen(){ scenModal.hidden = true; }
+
+$("scenBtn").addEventListener("click", openScen);
+$("scenClose").addEventListener("click", closeScen);
+scenModal.addEventListener("pointerdown", e => { if (e.target === scenModal) closeScen(); });
+
+$("scenAddOpen").addEventListener("click", () => {
+  const f = $("scenForm");
+  f.hidden = !f.hidden;
+  if (!f.hidden){ $("scenName").value = ""; $("scenDesc").value = ""; $("scenErr").textContent = ""; $("scenName").focus(); }
+});
+$("scenCancel").addEventListener("click", () => { $("scenForm").hidden = true; });
+$("scenName").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ e.preventDefault(); $("scenErr").textContent = "Choose which team's shape to capture."; }
+});
+
+for (const b of document.querySelectorAll("[data-cap]")){
+  b.addEventListener("click", () => {
+    const team = b.dataset.cap;
+    const name = $("scenName").value.trim();
+    if (!name){ $("scenErr").textContent = "Give the scenario a name first."; $("scenName").focus(); return; }
+    if (SCENARIOS[name]){ $("scenErr").textContent = "That name belongs to a built-in scenario."; return; }
+
+    const rows = capture(team);                            // normalised back to red orientation
+    const owner = BALL.owner && BALL.owner.startsWith(team + "-")
+      ? +BALL.owner.split("-")[1] : null;
+    MY_SCENARIOS[name] = {
+      desc: $("scenDesc").value.trim() || `Saved from the ${team} team.`,
+      ball: owner,
+      pts: rows.map(r => [r[0], r[1], r[2]])
+    };
+    $("scenForm").hidden = true;
+    renderScenarios();
+    say(`“${name}” saved — load it onto either team`);
+  });
+}
+
+/* ── the ball ───────────────────────────────────────────────
+   Possession is a relationship, not a flag: the ball is its own object that
+   attaches to whoever it's dropped next to, and sits in open space otherwise. */
+const ballEl = $("ball");
+const BALL = {x:50, y:50, owner:null};                     // pitch coords; owner = player id or null
+const SNAP = 4.2;                                          // board-% radius that counts as "at his feet"
+
+function ballOffset(p){                                    // sit at the carrier's front foot
+  const dir = p.team === "red" ? 1 : -1;
+  return {x: p.x + dir*2.6, y: p.y + 2.4};
+}
+
+function renderBall(){
+  const p = BALL.owner ? players.get(BALL.owner) : null;
+  const at = p ? ballOffset(p) : BALL;
+  const b = toBoard(at);
+  ballEl.style.left = clampB(b.x) + "%";
+  ballEl.style.top  = clampB(b.y) + "%";
+
+  for (const q of players.values()) q.el.classList.toggle("has-ball", q.id === BALL.owner);
+  ballEl.setAttribute("aria-label", p
+    ? `Ball — ${p.name || p.label || "player"} in possession. Drag to move it.`
+    : "Ball — loose. Drag it to a player to give them possession.");
+  paintBallBtn();
+}
+
+function nearestPlayer(bx, by){                            // bx/by in board-%
+  let best = null, bestD = Infinity;
+  for (const q of players.values()){
+    const c = toBoard(q);
+    const d = Math.hypot(c.x - bx, c.y - by);
+    if (d < bestD){ bestD = d; best = q; }
+  }
+  return bestD <= SNAP ? best : null;
+}
+
+function giveBall(id){
+  BALL.owner = id;
+  if (!id){                                                // dropped loose — leave it where it lies
+    const b = toBoard(BALL);
+    Object.assign(BALL, toPitch({x:clampB(b.x), y:clampB(b.y)}));
+  }
+  renderBall();
+}
+
+function paintBallBtn(){
+  const btn = $("inspBall");
+  if (!btn) return;
+  const has = current && BALL.owner === current.id;
+  btn.classList.toggle("on", !!has);
+  btn.textContent = has ? "Has the ball — take it away" : "Give the ball";
+}
+
+(function attachBallDrag(){
+  let off = null;
+  ballEl.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const r = board.getBoundingClientRect();
+    const cur = toBoard(BALL.owner ? ballOffset(players.get(BALL.owner)) : BALL);
+    off = {x:(e.clientX - r.left)/r.width*100 - cur.x, y:(e.clientY - r.top)/r.height*100 - cur.y};
+    BALL.owner = null;                                     // picking it up releases possession
+    ballEl.setPointerCapture(e.pointerId);
+    ballEl.classList.add("drag");
+  });
+  ballEl.addEventListener("pointermove", e => {
+    if (!off) return;
+    const r = board.getBoundingClientRect();
+    const bx = clampB((e.clientX - r.left)/r.width*100  - off.x);
+    const by = clampB((e.clientY - r.top)/r.height*100 - off.y);
+    Object.assign(BALL, toPitch({x:bx, y:by}));
+    renderBall();
+  });
+  const end = () => {
+    if (!off) return;
+    off = null;
+    ballEl.classList.remove("drag");
+    const b = toBoard(BALL);
+    const near = nearestPlayer(b.x, b.y);                  // snap to whoever it landed beside
+    giveBall(near ? near.id : null);
+  };
+  ballEl.addEventListener("pointerup", end);
+  ballEl.addEventListener("pointercancel", end);
+
+  ballEl.addEventListener("keydown", e => {
+    const step = e.shiftKey ? 0.5 : 2;
+    const d = {ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step]}[e.key];
+    if (d){
+      e.preventDefault();
+      if (BALL.owner) Object.assign(BALL, ballOffset(players.get(BALL.owner)));
+      BALL.owner = null;
+      const b = toBoard(BALL);
+      Object.assign(BALL, toPitch({x:clampB(b.x + d[0]*M.SX), y:clampB(b.y + d[1]*M.SY)}));
+      const nb = toBoard(BALL);
+      const near = nearestPlayer(nb.x, nb.y);
+      giveBall(near ? near.id : null);
+    }
+  });
+})();
+
+$("inspBall").addEventListener("click", () => {
+  if (!current) return;
+  if (BALL.owner === current.id){
+    Object.assign(BALL, ballOffset(current));              // drop it where he stands
+    giveBall(null);
+    say("Ball loose");
+  } else {
+    giveBall(current.id);
+    say(`${current.name || current.label || "Player"} on the ball`);
+  }
+});
+
+/* ── bench & substitutions ──────────────────────────────── */
+const BENCH = {red:[], blue:[]};                           // {n, pos, name, face, ratings}
+
+function benchEntry(n, pos, name, r){
+  return {n, pos, name, face:"",
+          ratings: Array.isArray(r) ? Object.fromEntries(ATTRS.map((a,j)=>[a.k, clamp100(r[j])])) : blankRatings()};
+}
+
+function renderBench(){
+  const list = $("benchList"), empty = $("benchEmpty");
+  list.innerHTML = "";
+  if (!current){ empty.hidden = false; $("benchCount").textContent = 0; return; }
+  const bench = BENCH[current.team];
+  $("benchCount").textContent = bench.length;
+  empty.hidden = bench.length > 0;
+
+  bench.forEach((b, i) => {
+    const li = document.createElement("li");
+
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "bench-row";
+    row.style.setProperty("--tc", current.team === "red" ? "var(--red)" : "var(--blue)");
+    row.innerHTML =
+      `<span class="shirt"${b.face ? ` style="background-image:url('${b.face}')"` : ""}>${b.face ? "" : (b.n ?? "")}</span>` +
+      `<span class="who"><span class="nm2"></span><span class="mt"></span></span>` +
+      `<span class="ov">${overall(b.ratings)}</span>` +
+      `<span class="go">SWAP IN</span>`;
+    row.querySelector(".nm2").textContent = b.name || "Unnamed sub";
+    row.querySelector(".mt").textContent = `${b.pos || "—"} · #${b.n === "" ? "–" : b.n}`;
+    row.title = `Bring ${b.name || "this sub"} on for ${current.name || current.label}`;
+    row.addEventListener("click", () => substitute(i));
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "bench-del";
+    del.setAttribute("aria-label", `Remove ${b.name || "sub"} from the bench`);
+    del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+    del.addEventListener("click", e => {
+      e.stopPropagation();
+      const [gone] = bench.splice(i, 1);
+      renderBench();
+      say(`${gone.name || "Sub"} removed from the bench`);
+    });
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex; align-items:center; gap:4px";
+    wrap.append(row, del);
+    li.appendChild(wrap);
+    list.appendChild(li);
+  });
+}
+
+function substitute(i){
+  if (!current) return;
+  const bench = BENCH[current.team];
+  const on = bench[i];
+  if (!on) return;
+
+  const off = {n:current.n, pos:current.pos || current.label, name:current.name,
+               face:current.face, ratings:{...current.ratings}};
+
+  current.n = on.n;                                        // the slot keeps its tactical label
+  current.name = on.name;
+  current.face = on.face;
+  current.pos = on.pos;
+  current.ratings = {...on.ratings};
+
+  bench[i] = off;                                          // the man coming off takes the bench seat
+  render(current);
+  if (BALL.owner === current.id) renderBall();
+  paintHeader();
+  for (const a of ATTRS) paintRow(a.k);
+  paintOverall();
+  renderBench();
+  say(`${on.name || "Sub"} on for ${off.name || "player"}`);
+}
+
+$("benchAdd").addEventListener("click", () => {
+  if (!current){ say("Open a player first — subs come on for someone"); return; }
+  BENCH[current.team].push(benchEntry("", "", "", null));
+  renderBench();
+  say("Blank sub added — swap them in, then name and rate them");
+});
+
+/* ── what to show on each magnet ────────────────────────── */
+const showPop = $("showPop"), showBtn = $("showBtn");
+const toggles = {"show-num":$("tgNum"), "show-name":$("tgName"), "show-face":$("tgFace")};
+function applyShow(){
+  for (const [cls, box] of Object.entries(toggles))
+    document.body.classList.toggle(cls, box.checked);
+}
+for (const box of Object.values(toggles)) box.addEventListener("change", applyShow);
+applyShow();
+
+showBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  const open = showPop.hidden;
+  showPop.hidden = !open;
+  showBtn.setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("pointerdown", e => {
+  if (!showPop.hidden && !showPop.contains(e.target) && e.target !== showBtn){
+    showPop.hidden = true;
+    showBtn.setAttribute("aria-expanded", "false");
+  }
+});
+
+$("resetBtn").addEventListener("click", () => {
+  closePop();
+  closeInspector();
+  for (const t of ["red","blue"]){
+    sq[t].value = "";                                      // back to plain magnets, no squad
+    sel[t].value = DEFAULT_SHAPE[t];
+    lastStock[t] = DEFAULT_SHAPE[t];
+    loadSquad(t, "", true);                                // clears names, faces, ratings and bench
+    refreshChip(t);
+  }
+  BALL.x = 50; BALL.y = 50;
+  giveBall(null);
+  say("Board reset — no squad loaded");
+});
+
+/* ── export ─────────────────────────────────────────────── */
+const onPitch = p => p.x >= -0.5 && p.x <= 100.5 && p.y >= -0.5 && p.y <= 100.5;
+
+function teamJSON(team){
+  const out = {
+    formation: sel[team].value,
+    squad: sq[team].value || null,
+    attacking: team === "red" ? "right" : "left",
+    players: []
+  };
+  for (let i = 1; i <= 11; i++){
+    const p = players.get(`${team}-${i}`);
+    out.players.push({
+      id:p.id, number:p.n, name:p.name, role:p.label, position:p.pos || null, face:p.face || null,
+      x:r1(p.x), y:r1(p.y), onPitch:onPitch(p),
+      overall:overall(p.ratings), ratings:{...p.ratings}
+    });
+  }
+  return out;
+}
+
+$("exportBtn").addEventListener("click", () => {
+  const data = {
+    app: "football-tactics-board",
+    exportedAt: new Date().toISOString(),
+    coordinates: {
+      space: "pitch-percent",
+      x: "0 = left goal line, 100 = right goal line",
+      y: "0 = top touchline, 100 = bottom touchline",
+      note: "0–100 spans the pitch; values just outside sit on the board margin"
+    },
+    ratingScale: {min:0, max:100, attributes: ATTRS.map(a => a.k)},
+    notation: {
+      run:"solid arrow — movement without the ball",
+      pass:"dashed arrow — pass along the ground",
+      lob:"arced long-short dashed arrow — lofted or long pass through the air",
+      dribble:"wavy arrow — carrying the ball",
+      shot:"double-line arrow — strike at goal",
+      hold:"arrow with end bar — move here and hold",
+      link:"dotted line — marking job or passing lane",
+      zone:"shaded rectangle — space to attack, press or protect",
+      line:"barred line — defensive height or offside line"
+    },
+    teams: {red: teamJSON("red"), blue: teamJSON("blue")},
+    bench: {red: BENCH.red, blue: BENCH.blue},
+    ball: {x:r1(BALL.x), y:r1(BALL.y), owner:BALL.owner, inPossession:BALL.owner !== null},
+    drawings: SHAPES.map(sh => ({
+      id:sh.id, type:sh.type, sequence:sh.n, ink:sh.ink,
+      points: sh.pts.map(pt => ({x:r1(pt.x), y:r1(pt.y)}))
+    })),
+    customFormations: CUSTOMS,
+    customScenarios: MY_SCENARIOS
+  };
+
+  const safe = s => s.replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"").toLowerCase() || "custom";
+  const label = t => sq[t].value || sel[t].value;
+  const file = `tactics-red-${safe(label("red"))}-vs-blue-${safe(label("blue"))}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const a = Object.assign(document.createElement("a"), {href:URL.createObjectURL(blob), download:file});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  say("Positions exported → " + file);
+});
+
+/* ── import ─────────────────────────────────────────────── */
+$("importBtn").addEventListener("click", () => $("importFile").click());
+$("importFile").addEventListener("change", e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { importData(JSON.parse(reader.result)); }
+    catch { say("Couldn't read that file — expected a tactics board export."); }
+  };
+  reader.readAsText(f);
+});
+
+function importData(d){
+  // saved shapes travel with the file
+  if (d.customFormations && typeof d.customFormations === "object"){
+    for (const [name, rows] of Object.entries(d.customFormations)){
+      if (FORMATIONS[name]) continue;
+      if (Array.isArray(rows) && rows.length === 11 &&
+          rows.every(r => Array.isArray(r) && Number.isFinite(+r[0]) && Number.isFinite(+r[1]))){
+        CUSTOMS[name] = rows.map(r => [+r[0], +r[1], r[2] ?? "", r[3] ?? ""]);
+      }
+    }
+  }
+  if (d.customScenarios && typeof d.customScenarios === "object"){
+    for (const [name, sc] of Object.entries(d.customScenarios)){
+      if (SCENARIOS[name]) continue;
+      const pts = Array.isArray(sc?.pts)
+        ? sc.pts.filter(r => Array.isArray(r) && Number.isFinite(+r[0]) && Number.isFinite(+r[1]))
+                .map(r => [+r[0], +r[1], r[2] ?? ""])
+        : [];
+      if (pts.length !== 11) continue;
+      MY_SCENARIOS[name] = {desc: String(sc.desc || ""), ball: Number.isFinite(+sc.ball) ? +sc.ball : null, pts};
+    }
+  }
+  rebuildSelects();
+
+  for (const team of ["red","blue"]){
+    const tp = d.teams?.[team];
+    if (!tp) continue;
+    if (tp.squad && TEAMS[tp.squad]) sq[team].value = tp.squad;
+    else if ("squad" in tp) sq[team].value = "";
+    if (Array.isArray(tp.players)){
+      tp.players.forEach((pl, i) => {
+        const p = players.get(pl?.id) || players.get(`${team}-${i+1}`);
+        if (!p || p.team !== team) return;
+        if (Number.isFinite(+pl.x)) p.x = +pl.x;
+        if (Number.isFinite(+pl.y)) p.y = +pl.y;
+        if (pl.role   != null) p.label = String(pl.role);
+        if (pl.number != null) p.n = pl.number;
+        if (pl.name   != null) p.name = String(pl.name);
+        if (typeof pl.face === "string" && /^data:image\//.test(pl.face)) p.face = pl.face;
+        if (pl.pos != null) p.pos = String(pl.pos);
+        if (pl.ratings && typeof pl.ratings === "object"){
+          for (const a of ATTRS)
+            if (Number.isFinite(+pl.ratings[a.k])) p.ratings[a.k] = clamp100(+pl.ratings[a.k]);
+        }
+        p.el.style.transitionDelay = (i*20)+"ms";
+        render(p);
+      });
+    }
+    const f = tp.formation;
+    const known = f && f !== "custom" && specOf(f);
+    sel[team].value = known ? f : "custom";
+    if (known) lastStock[team] = f;
+    refreshChip(team);
+  }
+  clearDelaysSoon();
+
+  if (d.bench && typeof d.bench === "object"){
+    for (const team of ["red","blue"]){
+      const list = d.bench[team];
+      if (!Array.isArray(list)) continue;
+      BENCH[team] = list.map(b => {
+        const e = benchEntry(b?.n ?? "", b?.pos ?? "", b?.name ?? "", null);
+        if (b?.ratings) for (const a of ATTRS)
+          if (Number.isFinite(+b.ratings[a.k])) e.ratings[a.k] = clamp100(+b.ratings[a.k]);
+        if (typeof b?.face === "string" && /^data:image\//.test(b.face)) e.face = b.face;
+        return e;
+      });
+    }
+  }
+  if (d.ball && typeof d.ball === "object"){
+    if (Number.isFinite(+d.ball.x)) BALL.x = +d.ball.x;
+    if (Number.isFinite(+d.ball.y)) BALL.y = +d.ball.y;
+    const own = d.ball.owner;
+    giveBall(typeof own === "string" && players.has(own) ? own : null);
+  }
+  if (Array.isArray(d.drawings)){
+    SHAPES.length = 0;
+    for (const sh of d.drawings){
+      const pts = Array.isArray(sh?.points)
+        ? sh.points.filter(pt => Number.isFinite(+pt?.x) && Number.isFinite(+pt?.y))
+                   .map(pt => ({x:+pt.x, y:+pt.y}))
+        : [];
+      const known = ["run","pass","lob","dribble","shot","hold","link","zone","line"].includes(sh?.type);
+      if (!known || pts.length < 2) continue;
+      SHAPES.push({id:"s" + (++shapeSeq), type:sh.type, pts,
+                   ink: /^#[0-9a-f]{6}$/i.test(sh.ink || "") ? sh.ink : "#16181b", n:null});
+    }
+    selIdx = null;
+    renumber(); renderShapes();
+  }
+  refreshInspector();
+  say("Board imported");
+}
+
+/* ── toast & kick-off ───────────────────────────────────── */
+function say(msg){
+  toast.textContent = msg;
+  toast.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("on"), 2800);
+}
+
+rebuildSelects();
+applyFormation("red",  lastStock.red,  false);
+applyFormation("blue", lastStock.blue, false);
+
+// open on a real match-up rather than blank numbered dots
+sq.red.value  = "Real Madrid";  loadSquad("red",  "Real Madrid", true);
+sq.blue.value = "Barcelona";    loadSquad("blue", "Barcelona",  true);
+
+refreshChip("red"); refreshChip("blue");
+renderBall();
+</script>
+</body>
+</html>

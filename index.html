@@ -104,7 +104,8 @@
     display:grid; place-items:center;
   }
   .chat-in button:disabled{opacity:.45; cursor:default}
-  .chat-key{padding:0 12px 12px; display:flex; gap:7px}
+  .chat-key{padding:10px 12px 2px; display:flex; gap:7px}
+  #keyBtn.on{color:#2fbf6d; border-color:#2fbf6d99}
   .chat-key[hidden]{display:none}
   .chat-key input{
     flex:1; font:400 12px/1.2 var(--mono); color:var(--chalk);
@@ -814,7 +815,16 @@
   <div class="chat-hd">
     <span class="dotg" aria-hidden="true"></span>
     <h2>ANALYST</h2>
+    <button type="button" id="keyBtn" title="No API key — click to add one" aria-label="API key">
+      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="4.2" cy="4.2" r="2.7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.2 6.2l5 5M9.2 9.2l1.6-1.6M11 11l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
     <button type="button" id="chatClear" title="Start a new conversation">CLEAR</button>
+  </div>
+
+  <div class="chat-key" id="chatKey">
+    <input id="chatKeyIn" type="password" placeholder="Anthropic API key — kept for this tab only" autocomplete="off">
+    <button type="button" id="chatKeySave">USE</button>
+    <button type="button" id="chatKeyClear" hidden>CLEAR</button>
   </div>
 
   <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
@@ -833,10 +843,7 @@
     </button>
   </div>
 
-  <div class="chat-key" id="chatKey" hidden>
-    <input id="chatKeyIn" type="password" placeholder="sk-ant-… (kept in memory only)" autocomplete="off">
-    <button type="button" id="chatKeySave">USE</button>
-  </div>
+
 </aside>
 
 <aside class="insp" id="insp" aria-label="Player ratings" aria-hidden="true">
@@ -3703,9 +3710,9 @@ async function ask(question){
     let rendered = [];
     try { rendered = localRenders(question, boardJSON()); } catch (e) {}
     addMsg(localAnswer() + (rendered.length ? "\n\nRendered locally without a model: " + rendered.join(", ") + "." : ""), "bot");
-    $("chatKey").hidden = false;
+    syncKeyUI(true);
     addMsg(apiKey ? "That key was rejected — check it and try again."
-                  : "No model is connected, so that was read straight off the board.", "sys");
+                  : "No model is connected, so that was read straight off the board. Paste an API key at the top of the chat to enable the analyst.", "sys");
   }
   busy = false;
   chatSend.disabled = false;
@@ -3763,11 +3770,48 @@ chatInput.addEventListener("input", () => {
   chatInput.style.height = Math.min(110, chatInput.scrollHeight) + "px";
 });
 $("chatClear").addEventListener("click", resetChat);
+/* The key is asked for once per tab: it lives in sessionStorage, so it survives a
+   refresh but is deleted by the browser the moment the tab closes. Where storage
+   is unavailable (some embedded previews) it degrades to memory-only. */
+const keyStore = {
+  get(){ try { return sessionStorage.getItem("tb_key") || ""; } catch (e){ return ""; } },
+  set(v){ try { v ? sessionStorage.setItem("tb_key", v) : sessionStorage.removeItem("tb_key"); } catch (e){} }
+};
+
+function syncKeyUI(open){
+  const has = !!apiKey;
+  $("keyBtn").classList.toggle("on", has);
+  $("keyBtn").title = has ? "API key active for this session — click to change or clear"
+                          : "No API key — click to add one";
+  $("chatKeyClear").hidden = !has;
+  $("chatKey").hidden = has && !open;
+  $("chatKeyIn").placeholder = has ? "Key active — paste a new one to replace it"
+                                   : "Anthropic API key — kept for this tab only";
+}
+
 $("chatKeySave").addEventListener("click", () => {
-  apiKey = $("chatKeyIn").value.trim();
+  const v = $("chatKeyIn").value.trim();
   $("chatKeyIn").value = "";
-  $("chatKey").hidden = true;
-  addMsg(apiKey ? "Key set for this session. Ask again." : "No key entered.", "sys");
+  if (!v){ addMsg("No key entered.", "sys"); return; }
+  apiKey = v;
+  keyStore.set(v);
+  syncKeyUI(false);
+  addMsg("Key active for this session — it stays until this tab closes, refreshes included.", "sys");
+  chatInput.focus();
+});
+$("chatKeyClear").addEventListener("click", () => {
+  apiKey = "";
+  keyStore.set("");
+  syncKeyUI(true);
+  addMsg("Key cleared.", "sys");
+});
+$("keyBtn").addEventListener("click", () => {
+  const willOpen = $("chatKey").hidden;
+  syncKeyUI(willOpen);
+  if (willOpen || !apiKey) $("chatKeyIn").focus();
+});
+$("chatKeyIn").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ e.preventDefault(); $("chatKeySave").click(); }
 });
 $("chatCtxClear").addEventListener("click", () => setAskAbout(null));
 
@@ -3782,6 +3826,8 @@ function setAskAbout(p){
   }
 }
 
+apiKey = keyStore.get();
+syncKeyUI(false);
 resetChat();
 
 /* ── export ─────────────────────────────────────────────── */

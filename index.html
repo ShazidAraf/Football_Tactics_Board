@@ -541,6 +541,44 @@
   }
   .bench-del:hover{color:#ff9b90; background:#ffffff10}
 
+  /* ── AI suggestion overlay & render panels ───────────── */
+  .ai-bar{
+    position:absolute; top:2.2%; left:50%; transform:translateX(-50%); z-index:55;
+    display:flex; align-items:center; gap:9px; max-width:92%;
+    background:rgba(22,24,27,.92); border:1px solid #f2c21f66; border-radius:99px;
+    padding:6px 7px 6px 14px; color:var(--gk);
+    font:700 11.5px/1.2 var(--body); letter-spacing:.03em;
+    box-shadow:0 8px 20px rgba(0,0,0,.4);
+  }
+  .ai-bar[hidden]{display:none}
+  .ai-bar span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .ai-keep{
+    background:linear-gradient(180deg,#ffd54a,var(--gk)); color:#241c00;
+    border:1px solid #a37f00; border-radius:99px; padding:6px 12px;
+    font:800 11px/1 var(--body); letter-spacing:.05em; cursor:pointer;
+  }
+  .ai-keep:hover{filter:brightness(1.06)}
+  .ai-x{
+    background:transparent; border:none; color:#9aa1a8; cursor:pointer;
+    font:700 13px/1 var(--body); padding:4px 7px; border-radius:99px;
+  }
+  .ai-x:hover{color:#fff; background:#ffffff14}
+
+  .panel{
+    border-radius:14px; overflow:hidden; border:1px solid #000a;
+    background:linear-gradient(180deg,var(--coal-edge),var(--coal) 60px);
+    box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .panel[hidden]{display:none}
+  .panel-hd{display:flex; align-items:center; gap:8px; padding:10px 13px; border-bottom:1px solid #33373c}
+  .panel-hd h3{flex:1; margin:0; font:800 12px/1.2 var(--body); letter-spacing:.07em; color:var(--chalk)}
+  .panel-body{padding:11px 13px 13px}
+  .panel-body svg{display:block; width:100%; height:auto; border-radius:9px}
+  .plot-body svg{background:#0e1012; max-width:640px; margin:0 auto}
+  .heat-legend{display:flex; align-items:center; gap:9px; margin-top:9px; font:700 10px/1 var(--body); letter-spacing:.1em; color:var(--muted)}
+  .heat-legend i{flex:1; height:8px; border-radius:99px; background:linear-gradient(90deg,#2a5bd0,#fbfaf6,#d63a2f)}
+  .panel-cap{margin:8px 0 0; font:500 11px/1.55 var(--body); color:#8b9198}
+
   .hint{margin:0; text-align:center; font-size:12.5px; color:#eaf3ea; opacity:.85; text-shadow:0 1px 2px rgba(0,0,0,.5)}
   .hint b{font-weight:700}
 
@@ -720,6 +758,12 @@
 
       <svg class="draw" id="draw" viewBox="0 0 1391 1000" aria-hidden="true" focusable="false"></svg>
       <div class="capture" id="capture"></div>
+      <svg class="draw" id="aidraw" viewBox="0 0 1391 1000" aria-hidden="true" focusable="false"></svg>
+      <div class="ai-bar" id="aiBar" hidden>
+        <span id="aiBarTxt">Suggestion</span>
+        <button class="ai-keep" id="aiKeep" type="button" title="Convert the suggestion into your own editable drawings">Keep</button>
+        <button class="ai-x" id="aiClear" type="button" aria-label="Dismiss suggestion">✕</button>
+      </div>
 
       <button class="ball" id="ball" type="button" aria-label="Ball — drag it to a player to give them possession">
         <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -730,6 +774,36 @@
         </svg>
       </button>
       <!-- magnets are injected here -->
+    </div>
+  </section>
+
+  <section class="panel" id="heatPanel" hidden>
+    <div class="panel-hd">
+      <h3 id="heatTitle">Heatmap</h3>
+      <button class="icon-btn" id="heatRefresh" type="button" title="Recompute from current positions">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M10.5 6a4.5 4.5 0 1 1-1.3-3.2M9.5 .8v2.4H7.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="heatClose" type="button" aria-label="Close heatmap">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="panel-body">
+      <svg id="heatSvg" viewBox="0 0 1391 1000" role="img" aria-label="Probability heatmap of the pitch"></svg>
+      <div class="heat-legend"><span>BLUE</span><i aria-hidden="true"></i><span>RED</span></div>
+      <p class="panel-cap" id="heatCap"></p>
+    </div>
+  </section>
+
+  <section class="panel" id="plotPanel" hidden>
+    <div class="panel-hd">
+      <h3 id="plotTitle">Chart</h3>
+      <button class="icon-btn" id="plotClose" type="button" aria-label="Close chart">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="panel-body plot-body">
+      <svg id="plotSvg" viewBox="0 0 640 560" role="img" aria-label="Chart"></svg>
+      <p class="panel-cap" id="plotCap"></p>
     </div>
   </section>
 
@@ -2118,6 +2192,396 @@ for (const b of document.querySelectorAll("[data-cap]")){
   });
 }
 
+/* ── render engine: AI overlay, zones, heatmaps, charts ─────
+   The analyst draws on its OWN layer. User Undo/Clear never touch it; a new
+   question replaces it; Keep converts it into ordinary editable drawings.   */
+const AI = {items:[], budget:0, seq:0, question:""};
+const INKS = {gold:"#d8a90e", red:"#d63a2f", blue:"#2a5bd0", green:"#1f9d55", black:"#16181b"};
+
+function clearAI(question){
+  AI.items.length = 0;
+  AI.budget = 0;
+  AI.seq = 0;
+  AI.question = question || "";
+  renderAI();
+}
+
+function resolveRef(ref, board){
+  if (typeof ref === "string"){
+    const p = Sampler.find(board, ref);
+    return p ? {x:p.x, y:p.y, name:p.name || p.role, team:p.team} : null;
+  }
+  if (ref && Number.isFinite(+ref.x) && Number.isFinite(+ref.y)){
+    return {x:Math.max(0, Math.min(100, +ref.x)), y:Math.max(0, Math.min(100, +ref.y))};
+  }
+  return null;
+}
+
+/* zone grid: same 3×3 vocabulary the space slice speaks */
+const GRID_B = [0, 33.4, 66.7, 100];
+const THIRD_WORDS = ["red's defensive third", "middle third", "blue's defensive third"];
+const CHAN_WORDS  = ["top", "centre", "bottom"];
+const CELL_NAMES  = THIRD_WORDS.flatMap(t => CHAN_WORDS.map(c => t + " | " + c));
+
+function parseCell(str){
+  const q = String(str).toLowerCase();
+  let i = null, j = null;
+  if (/red/.test(q) && /def/.test(q)) i = 0;
+  else if (/mid/.test(q)) i = 1;
+  else if (/blue/.test(q) && /def/.test(q)) i = 2;
+  if (/top/.test(q)) j = 0;
+  else if (/cent|middle chan|mid chan/.test(q)) j = 1;
+  else if (/bottom/.test(q)) j = 2;
+  if (i === null && /final/.test(q)) i = /red/.test(q) ? 2 : /blue/.test(q) ? 0 : null;
+  return (i === null || j === null) ? null : {i, j};
+}
+
+function cellUnionLoops(cells){                            // union outline of 3×3 grid cells
+  const filled = new Set(cells.map(c => c.i + "," + c.j));
+  const segs = [];                                         // directed CW around filled area
+  for (const c of [...filled].map(k => ({i:+k.split(",")[0], j:+k.split(",")[1]}))){
+    const x0 = GRID_B[c.i], x1 = GRID_B[c.i+1], y0 = GRID_B[c.j], y1 = GRID_B[c.j+1];
+    const edges = [
+      [c.i, c.j-1, [x0,y0], [x1,y0]],
+      [c.i+1, c.j, [x1,y0], [x1,y1]],
+      [c.i, c.j+1, [x1,y1], [x0,y1]],
+      [c.i-1, c.j, [x0,y1], [x0,y0]],
+    ];
+    for (const [ni, nj, a, b] of edges)
+      if (!filled.has(ni + "," + nj)) segs.push([a, b]);
+  }
+  const key = p => p[0].toFixed(1) + "," + p[1].toFixed(1);
+  const used = segs.map(() => false), loops = [];
+  for (let sIdx = 0; sIdx < segs.length; sIdx++){
+    if (used[sIdx]) continue;
+    used[sIdx] = true;
+    const loop = [segs[sIdx][0], segs[sIdx][1]];
+    for (let guard = 0; guard < 80; guard++){
+      const end = key(loop[loop.length - 1]);
+      if (end === key(loop[0])){ loop.pop(); break; }
+      let hop = -1;
+      for (let t = 0; t < segs.length; t++)
+        if (!used[t] && key(segs[t][0]) === end){ hop = t; break; }
+      if (hop < 0) break;
+      used[hop] = true;
+      loop.push(segs[hop][1]);
+    }
+    loops.push(loop.map(p => ({x:p[0], y:p[1]})));
+  }
+  return loops;
+}
+
+function renderAI(){
+  const svg = $("aidraw"), bar = $("aiBar");
+  svg.innerHTML = "";
+  if (!AI.items.length){ bar.hidden = true; return; }
+  bar.hidden = false;
+  $("aiBarTxt").textContent = "Suggestion — " + (AI.question || "from the analyst").slice(0, 46);
+
+  for (const it of AI.items){
+    const g = el("g", {});
+    if (it.kind === "zone"){
+      const d = it.loops.map(loop =>
+        "M" + loop.map(p => { const v = toView(p); return v.x.toFixed(1) + " " + v.y.toFixed(1); }).join("L") + "Z").join(" ");
+      g.appendChild(el("path", {d, fill:it.ink, "fill-opacity":.13, "fill-rule":"evenodd", stroke:"none"}));
+      g.appendChild(el("path", {d, fill:"none", stroke:"#f2c21f", "stroke-width":11, "stroke-opacity":.28, "stroke-linejoin":"round"}));
+      g.appendChild(el("path", {d, fill:"none", stroke:it.ink, "stroke-width":4, "stroke-dasharray":"14 9", "stroke-linejoin":"round"}));
+      if (it.label){
+        const c = toView(it.center);
+        const w = it.label.length * 8.2 + 18;
+        g.appendChild(el("rect", {x:c.x - w/2, y:c.y - 14, width:w, height:28, rx:8, fill:"#16181b", "fill-opacity":.82}));
+        const t = el("text", {x:c.x, y:c.y, fill:"#f2c21f", "font-family":"system-ui,sans-serif",
+                              "font-size":15, "font-weight":700, "text-anchor":"middle", "dominant-baseline":"central"});
+        t.textContent = it.label;
+        g.appendChild(t);
+      }
+    } else {
+      const v = it.pts.map(toView);
+      const type = it.type;
+      const d = type === "lob" ? lobArc(v).d : type === "dribble" ? wavyD(v) : smoothD(v);
+      g.appendChild(el("path", {d, stroke:"#f2c21f", "stroke-width":12, "stroke-opacity":.3, fill:"none", "stroke-linecap":"round"}));
+      const dash = type === "pass" ? "20 13" : type === "lob" ? "26 11 6 11" : type === "link" ? "3 16" : null;
+      if (type === "shot"){
+        for (const o of [-7.5, 7.5])
+          g.appendChild(el("path", {d:smoothD(offsetPath(v, o)), stroke:it.ink, "stroke-width":4.2, fill:"none",
+                                    "stroke-linecap":"round", "stroke-linejoin":"round"}));
+      } else {
+        g.appendChild(el("path", Object.assign({d, stroke:it.ink, "stroke-width":5.5, fill:"none",
+          "stroke-linecap":"round", "stroke-linejoin":"round"}, dash ? {"stroke-dasharray":dash} : {})));
+      }
+      if (["run","pass","lob","dribble","shot"].includes(type))
+        g.appendChild(arrowHead(type === "lob" ? [lobArc(v).ctrl, lobArc(v).b] : v, type === "shot" ? 28 : 21, it.ink));
+      if (type === "hold") g.appendChild(endBar(v, 15, it.ink, 5.5));
+      if (it.seq){
+        g.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:14, fill:"#f2c21f", stroke:"#16181b", "stroke-width":2.5}));
+        const t = el("text", {x:v[0].x, y:v[0].y, fill:"#16181b", "font-family":"system-ui,sans-serif",
+                              "font-size":16, "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+        t.textContent = it.seq;
+        g.appendChild(t);
+      }
+      if (it.note){
+        const mx = (v[0].x + v[1].x)/2, my = (v[0].y + v[1].y)/2 - 22;
+        const w = it.note.length * 7.4 + 16;
+        g.appendChild(el("rect", {x:mx - w/2, y:my - 12, width:w, height:24, rx:7, fill:"#16181b", "fill-opacity":.8}));
+        const t = el("text", {x:mx, y:my, fill:"#fff", "font-family":"system-ui,sans-serif",
+                              "font-size":13, "font-weight":600, "text-anchor":"middle", "dominant-baseline":"central"});
+        t.textContent = it.note;
+        g.appendChild(t);
+      }
+    }
+    svg.appendChild(g);
+  }
+}
+
+$("aiKeep").addEventListener("click", () => {
+  let kept = 0;
+  for (const it of AI.items){
+    if (it.kind === "shape"){
+      SHAPES.push({id:"s"+(++shapeSeq), type:it.type, pts:it.pts.map(p => ({...p})), ink:it.ink, n:null});
+    } else {
+      const xs = it.loops.flat().map(p => p.x), ys = it.loops.flat().map(p => p.y);
+      SHAPES.push({id:"s"+(++shapeSeq), type:"zone", ink:it.ink, n:null,
+                   pts:[{x:Math.min(...xs), y:Math.min(...ys)}, {x:Math.max(...xs), y:Math.max(...ys)}]});
+    }
+    kept++;
+  }
+  AI.items.length = 0;
+  renderAI();
+  renumber();
+  renderShapes();
+  say("Kept " + kept + " drawing(s) — they're yours to edit now");
+});
+$("aiClear").addEventListener("click", () => { AI.items.length = 0; renderAI(); });
+
+/* the deterministic space highlighter: no model needed */
+function autoHighlightSpace(board){
+  const occ = Sampler.metrics.occupancy(board);
+  const cellOf = k => {
+    const [third, chan] = k.split("|");
+    return {i:THIRD_WORDS.indexOf(third), j:CHAN_WORDS.indexOf(chan)};
+  };
+  const entries = Object.entries(occ).map(([k, v]) => ({k, c:v.red + v.blue}));
+  let pick = entries.filter(e => e.c === 0);
+  let label = "open space";
+  if (!pick.length) pick = entries.filter(e => e.c <= 1);
+  if (!pick.length){                                       // kickoff shapes fill every cell —
+    const min = Math.min(...entries.map(e => e.c));        // fall back to the least crowded
+    pick = entries.filter(e => e.c === min).slice(0, 3);
+    label = "least crowded";
+  }
+  const empty = pick.map(e => cellOf(e.k)).filter(c => c.i >= 0 && c.j >= 0);
+  if (!empty.length) return false;
+  const loops = cellUnionLoops(empty);
+  const cx = empty.reduce((a,c) => a + (GRID_B[c.i] + GRID_B[c.i+1])/2, 0) / empty.length;
+  const cy = empty.reduce((a,c) => a + (GRID_B[c.j] + GRID_B[c.j+1])/2, 0) / empty.length;
+  AI.items.push({kind:"zone", loops, center:{x:cx, y:cy}, label, ink:INKS.gold});
+  renderAI();
+  return true;
+}
+
+/* ── heatmaps: computed here, chosen by the model ───────── */
+let HEAT = null;
+function computeHeat(kind, opts, board){
+  const NX = 24, NY = 16;
+  const ps = [];
+  for (const team of ["red","blue"])
+    for (const p of (board.teams?.[team]?.players || []))
+      ps.push({team, x:p.x, y:p.y, name:p.name || p.role, pace:+(p.ratings || {}).pace || 50});
+  if (!ps.length) return {error:"No players on the board to compute from."};
+
+  const spd = p => 3.2 + (p.pace/100)*4.3;                 // m/s from the pace rating
+  const met = (dx, dy) => Math.hypot(dx*1.05, dy*0.68);    // pitch-% → metres
+
+  let focus = null;
+  if (kind === "reachability"){
+    const f = opts.player ? Sampler.find(board, String(opts.player)) : null;
+    if (!f) return {error:"reachability needs a player — e.g. {kind:'reachability', player:'Mbappé'}."};
+    focus = {team:f.team, x:f.x, y:f.y, name:f.name || f.role, pace:+(f.ratings || {}).pace || 50};
+  }
+
+  const vals = new Float64Array(NX*NY);
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++){
+    const cx = (i + .5)/NX*100, cy = (j + .5)/NY*100;
+    let v;
+    if (kind === "reachability"){
+      const tF = met(focus.x - cx, focus.y - cy) / spd(focus);
+      let tO = 1e9;
+      for (const p of ps){
+        if (p.team === focus.team) continue;
+        const t = met(p.x - cx, p.y - cy) / spd(p);
+        if (t < tO) tO = t;
+      }
+      const pF = 1/(1 + Math.exp((tF - tO)/0.7));          // P(focus arrives first)
+      v = focus.team === "red" ? pF : 1 - pF;              // 1 is always the red end
+    } else {
+      let R = 0, B = 0;
+      for (const p of ps){
+        const d = met(p.x - cx, p.y - cy);
+        const s = 6 + (p.pace/100)*8;
+        const w = Math.exp(-d*d/(2*s*s));
+        if (p.team === "red") R += w; else B += w;
+      }
+      v = (R + B) > 1e-9 ? R/(R + B) : 0.5;
+    }
+    vals[j*NX + i] = v;
+  }
+
+  let sum = 0, mi = 0, ma = 0;
+  for (let k = 0; k < vals.length; k++){
+    sum += vals[k];
+    if (vals[k] > vals[ma]) ma = k;
+    if (vals[k] < vals[mi]) mi = k;
+  }
+  const cellName = k => {
+    const i = k % NX, j = (k/NX)|0;
+    const px = (i + .5)/NX*100, py = (j + .5)/NY*100;
+    const th = px < 33.4 ? "red's defensive third" : px < 66.7 ? "the middle third" : "blue's defensive third";
+    const ch = py < 33.4 ? "top" : py < 66.7 ? "central" : "bottom";
+    return ch + " band of " + th;
+  };
+  const redShare = Math.round(sum/vals.length*100);
+  let title, caption, summary;
+  if (kind === "reachability"){
+    const share = Math.round((focus.team === "red" ? sum : vals.length - sum)/vals.length*100);
+    const win = focus.team === "red" ? ma : mi, lose = focus.team === "red" ? mi : ma;
+    title = "Race map — where " + focus.name + " reaches the ball first";
+    caption = "Arrival-time race between " + focus.name + " and the nearest opponent, from positions and pace ratings. " +
+              (focus.team === "red" ? "Red" : "Blue") + " end = he wins the race. Illustrative, not tracking data.";
+    summary = "Race heatmap rendered below the board. " + focus.name + " wins the ball first across ~" + share +
+              "% of the pitch; he is most dangerous in the " + cellName(win) + " and beaten to it around the " + cellName(lose) + ".";
+  } else {
+    title = "Pitch control — probability each area belongs to RED";
+    caption = "Influence model from positions and pace ratings: red end = red-controlled, blue end = blue-controlled. Illustrative, not tracking data.";
+    summary = "Pitch-control heatmap rendered below the board. RED holds ~" + redShare + "% of the surface; RED is strongest in the " +
+              cellName(ma) + ", BLUE strongest in the " + cellName(mi) + ".";
+  }
+  return {kind, opts, NX, NY, vals, title, caption, summary};
+}
+
+function heatColor(v){                                     // 0 = blue, .5 = board cream, 1 = red
+  const mix = (a, b, t) => Math.round(a + (b - a)*t);
+  if (v >= .5){ const t = (v - .5)*2; return "rgb(" + mix(251,214,t) + "," + mix(250,58,t) + "," + mix(246,47,t) + ")"; }
+  const t = (.5 - v)*2; return "rgb(" + mix(251,42,t) + "," + mix(250,91,t) + "," + mix(246,208,t) + ")";
+}
+
+function showHeat(h){
+  if (!h || h.error) return h ? h.error : "Heatmap failed.";
+  HEAT = h;
+  const pv = (x, y) => toView({x, y});
+  let out = '<rect x="0" y="0" width="1391" height="1000" fill="#fbfaf6"/>';
+  for (let j = 0; j < h.NY; j++) for (let i = 0; i < h.NX; i++){
+    const a = pv(i/h.NX*100, j/h.NY*100), b = pv((i+1)/h.NX*100, (j+1)/h.NY*100);
+    out += '<rect x="' + a.x.toFixed(1) + '" y="' + a.y.toFixed(1) + '" width="' + (b.x - a.x + .7).toFixed(1) +
+           '" height="' + (b.y - a.y + .7).toFixed(1) + '" fill="' + heatColor(h.vals[j*h.NX + i]) + '" fill-opacity="0.82"/>';
+  }
+  out += document.querySelector(".pitch g").outerHTML;     // the same pitch lines, same geometry
+  const board = boardJSON();
+  for (const team of ["red","blue"])
+    for (const p of (board.teams?.[team]?.players || [])){
+      const v = pv(p.x, p.y);
+      out += '<circle cx="' + v.x.toFixed(1) + '" cy="' + v.y.toFixed(1) + '" r="10" fill="' +
+             (team === "red" ? "#d63a2f" : "#2a5bd0") + '" stroke="#fff" stroke-width="2.5"><title>' +
+             (p.name || p.role) + '</title></circle>';
+    }
+  $("heatSvg").innerHTML = out;
+  $("heatTitle").textContent = h.title;
+  $("heatCap").textContent = h.caption;
+  $("heatPanel").hidden = false;
+  return h.summary;
+}
+$("heatClose").addEventListener("click", () => { $("heatPanel").hidden = true; });
+$("heatRefresh").addEventListener("click", () => {
+  if (HEAT) showHeat(computeHeat(HEAT.kind, HEAT.opts, boardJSON()));
+});
+
+/* ── charts ─────────────────────────────────────────────── */
+const ATTR_ABBR = {pace:"PAC", stamina:"STA", composure:"CMP", positioning:"POS",
+                   strength:"STR", aerial:"AER", passing:"PAS", dribbling:"DRI", finishing:"FIN"};
+
+function doPlot(spec, board){
+  const kind = spec.kind === "bars" ? "bars" : "radar";
+  const svg = $("plotSvg");
+  let out = "", title, caption, summary;
+
+  if (kind === "radar"){
+    const names = (spec.players || []).map(String).slice(0, 3);
+    if (!names.length) return "plot needs players:[names] for a radar.";
+    const ps = [];
+    for (const n of names){
+      const p = Sampler.find(board, n);
+      if (!p) return 'No player called "' + n + '" on the board — check spelling with get_overview.';
+      ps.push(p);
+    }
+    svg.setAttribute("viewBox", "0 0 640 560");
+    const cx = 300, cy = 292, R = 188, K = ATTRS.length;
+    const pt = (k, val) => {
+      const a = -Math.PI/2 + k*2*Math.PI/K, r = R*val/100;
+      return (cx + r*Math.cos(a)).toFixed(1) + "," + (cy + r*Math.sin(a)).toFixed(1);
+    };
+    for (const ring of [25, 50, 75, 100])
+      out += '<polygon points="' + ATTRS.map((_, k) => pt(k, ring)).join(" ") + '" fill="none" stroke="#33383e" stroke-width="1"/>';
+    ATTRS.forEach((a, k) => {
+      const ang = -Math.PI/2 + k*2*Math.PI/K;
+      out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + R*Math.cos(ang)).toFixed(1) + '" y2="' + (cy + R*Math.sin(ang)).toFixed(1) + '" stroke="#33383e" stroke-width="1"/>';
+      out += '<text x="' + (cx + (R + 27)*Math.cos(ang)).toFixed(1) + '" y="' + (cy + (R + 27)*Math.sin(ang)).toFixed(1) +
+             '" fill="#9aa1a8" font-family="system-ui" font-size="15" font-weight="700" text-anchor="middle" dominant-baseline="central">' + ATTR_ABBR[a.k] + '</text>';
+    });
+    const dupSeen = {};
+    ps.forEach((p, idx) => {
+      const col = p.team === "red" ? "#ff7061" : "#7fa4ff";
+      const dup = dupSeen[p.team] ? ' stroke-dasharray="8 5"' : "";
+      dupSeen[p.team] = 1;
+      out += '<polygon points="' + ATTRS.map((a, k) => pt(k, (p.ratings || {})[a.k] || 0)).join(" ") +
+             '" fill="' + col + '" fill-opacity="0.15" stroke="' + col + '" stroke-width="3"' + dup + '/>';
+      out += '<rect x="462" y="' + (24 + idx*30) + '" width="15" height="15" rx="4" fill="' + col + '"/>' +
+             '<text x="486" y="' + (36 + idx*30) + '" fill="#e8e9ea" font-family="system-ui" font-size="15" font-weight="700">' +
+             (p.name || p.role) + " · " + overall(p.ratings) + '</text>';
+    });
+    title = "Radar — " + ps.map(p => p.name || p.role).join(" vs ");
+    caption = "Nine attributes, 0–100, read off the board. Outer ring = 100.";
+    if (ps.length === 2){
+      const diffs = ATTRS.map(a => ({a:a.label, d:((ps[0].ratings||{})[a.k]||0) - ((ps[1].ratings||{})[a.k]||0)}))
+                         .sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 2);
+      summary = "Radar plotted (" + title.slice(8) + "). Biggest gaps: " +
+                diffs.map(d => d.a + " " + (d.d > 0 ? "+" : "") + d.d + " to " + (d.d > 0 ? (ps[0].name||"") : (ps[1].name||""))).join("; ") + ".";
+    } else summary = "Radar plotted: " + ps.map(p => (p.name || p.role) + " (OVR " + overall(p.ratings) + ")").join(", ") + ".";
+  } else {
+    const unit = ["defence","midfield","attack"].includes(spec.unit) ? spec.unit : null;
+    svg.setAttribute("viewBox", "0 0 640 360");
+    const avg = team => {
+      const u = Sampler.metrics.units(board, team);
+      const pick = unit ? u[unit] : [...u.defence, ...u.midfield, ...u.attack];
+      return ATTRS.map(a => pick.length ? Math.round(pick.reduce((s, p) => s + ((p.ratings||{})[a.k]||0), 0)/pick.length) : 0);
+    };
+    const rA = avg("red"), bA = avg("blue");
+    const x0 = 46, w = 20, gap = 66, base = 300, H = 240;
+    out += '<line x1="' + x0 + '" y1="' + base + '" x2="620" y2="' + base + '" stroke="#3c4046"/>';
+    for (const yv of [50, 100]){
+      const y = base - H*yv/100;
+      out += '<line x1="' + x0 + '" y1="' + y + '" x2="620" y2="' + y + '" stroke="#26292d"/>' +
+             '<text x="' + (x0 - 8) + '" y="' + (y + 4) + '" fill="#6c7278" font-family="system-ui" font-size="11" text-anchor="end">' + yv + '</text>';
+    }
+    ATTRS.forEach((a, k) => {
+      const gx = x0 + 14 + k*gap;
+      out += '<rect x="' + gx + '" y="' + (base - H*rA[k]/100) + '" width="' + w + '" height="' + (H*rA[k]/100) + '" rx="3" fill="#d63a2f"/>';
+      out += '<rect x="' + (gx + w + 4) + '" y="' + (base - H*bA[k]/100) + '" width="' + w + '" height="' + (H*bA[k]/100) + '" rx="3" fill="#2a5bd0"/>';
+      out += '<text x="' + (gx + w + 2) + '" y="' + (base + 20) + '" fill="#9aa1a8" font-family="system-ui" font-size="12" font-weight="700" text-anchor="middle">' + ATTR_ABBR[a.k] + '</text>';
+    });
+    title = "Team averages" + (unit ? " — " + unit : " — full XI");
+    caption = "Mean rating per attribute, red vs blue" + (unit ? ", " + unit + " only." : ".");
+    const redWins = rA.filter((v, k) => v > bA[k]).length;
+    summary = "Bar chart plotted (" + title.slice(2).trim() + "): RED leads on " + redWins + " of 9 attributes, BLUE on " + (9 - redWins) + ".";
+  }
+  svg.innerHTML = out;
+  $("plotTitle").textContent = title;
+  $("plotCap").textContent = caption;
+  $("plotPanel").hidden = false;
+  return summary;
+}
+$("plotClose").addEventListener("click", () => { $("plotPanel").hidden = true; });
+
+/* ── the ball ───────────────────────────────────────────────
+
 /* ── the ball ───────────────────────────────────────────────
    Possession is a relationship, not a flag: the ball is its own object that
    attaches to whoever it's dropped next to, and sits in open space otherwise. */
@@ -2937,6 +3401,8 @@ function playerFromBoard(board, id){
   return null;
 }
 
+const RENDER_RX = /\b(draw|sketch|illustrate|highlight|heat ?map|plot|graph|chart|radar|visuali[sz]e|show (me|us|it|the|a|how))\b|\bhow (do|can|could|should|would|to) (we|i|you|they)? ?(stop|defend against|defend|contain|nullify|neutrali[sz]e|deal with|mark|press|break down|beat|exploit|attack|create)\b/i;
+
 function route(question, board){
   const f = Sampler.classify(board, question);
   if (askAbout && !f.player){                              // a clicked player anchors pronouns
@@ -2946,6 +3412,7 @@ function route(question, board){
   if (f.intent === "offboard") return {kind:"none", f};
   const intents = Sampler.matchedIntents(question).filter(k => k !== "offboard");
   const people  = Sampler.mentionedPlayers(board, question);
+  if (RENDER_RX.test(question)) return {kind:"agent", f};
   if (intents.length >= 2 || people.length >= 2 || f.intent === "overview")
     return {kind:"agent", f};
   return {kind:"slice", f};
@@ -3029,11 +3496,103 @@ const AGENT_TOOLS = [
             `${Math.round(units)} pitch units, roughly ${Math.round(metres)}m. ` +
             (near ? `Closest opponent to that line: ${near.o.name || near.o.role}, ${Math.round(near.d)} units off it.` : "No opponents on the board.");
    }},
+
+  {name:"draw_actions",
+   description:"Draw coaching notation on the board's suggestion overlay. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Number a sequence with seq. Max 8 actions per answer — fewer, clearer arrows teach better.",
+   input_schema:{type:"object", properties:{
+     actions:{type:"array", items:{type:"object", properties:{
+       type:{type:"string", enum:["run","pass","lob","dribble","shot","hold","mark"]},
+       from:{description:"Player name or {x,y}"},
+       to:{description:"Player name or {x,y}"},
+       seq:{type:"integer", description:"Order in the move"},
+       note:{type:"string", description:"Very short label, e.g. 'tight, ball side'"}
+     }, required:["type","from","to"]}}}, required:["actions"]},
+   run:(a, board)=>{
+     const list = Array.isArray(a.actions) ? a.actions : [];
+     if (!list.length) return "draw_actions needs actions:[{type,from,to}, ...].";
+     if (AI.budget + list.length > 8)
+       return "Render budget is 8 actions per answer (" + AI.budget + " used) — send fewer, clearer actions.";
+     const done = [];
+     for (const act of list){
+       if (!["run","pass","lob","dribble","shot","hold","mark"].includes(act.type))
+         return 'Unknown action type "' + act.type + '" — use run, pass, lob, dribble, shot, hold or mark.';
+       const A = resolveRef(act.from, board), B = resolveRef(act.to, board);
+       if (!A || !B)
+         return "Could not resolve " + JSON.stringify(!A ? act.from : act.to) +
+                " — use an exact player name from the board, or {x,y} with 0-100.";
+       if (Math.hypot(A.x - B.x, A.y - B.y) < 3)
+         return "from and to are on top of each other for that " + act.type + ".";
+       const ink = INKS[act.ink] || (A.team === "red" ? INKS.red : A.team === "blue" ? INKS.blue : INKS.black);
+       const seq = act.type === "mark" ? null : (Number.isFinite(+act.seq) ? +act.seq : ++AI.seq);
+       AI.items.push({kind:"shape", type:act.type === "mark" ? "link" : act.type,
+                      pts:[{x:A.x, y:A.y}, {x:B.x, y:B.y}], seq,
+                      note:String(act.note || "").slice(0, 26), ink});
+       AI.budget++;
+       const fmt = P => P.name || ("x" + Math.round(P.x) + ",y" + Math.round(P.y));
+       done.push((seq ? seq + ". " : "") + act.type + " " + fmt(A) + " → " + fmt(B) + (act.note ? " (" + act.note + ")" : ""));
+     }
+     renderAI();
+     return "Drawn on the gold suggestion overlay: " + done.join("; ") + ". Reference these in your answer, briefly.";
+   }},
+
+  {name:"highlight_zone",
+   description:"Shade a region of the board on the suggestion overlay. Prefer cells (the same third × channel grid get_space uses, e.g. 'middle third | centre'); their union renders as one shape, which may be non-rectangular. polygon:[{x,y}...] is for shapes the grid can't express. Max 3 zones per answer.",
+   input_schema:{type:"object", properties:{
+     cells:{type:"array", items:{type:"string"}, description:"e.g. [\"middle third | top\", \"blue's defensive third | top\"]"},
+     polygon:{type:"array", items:{type:"object", properties:{x:{type:"number"}, y:{type:"number"}}}},
+     label:{type:"string", description:"Short caption shown in the zone"},
+     ink:{type:"string", enum:["gold","red","blue","green","black"]}}},
+   run:(a, board)=>{
+     if (AI.items.filter(i => i.kind === "zone").length >= 3)
+       return "Zone budget is 3 per answer — combine cells into one call instead.";
+     const ink = INKS[a.ink] || INKS.gold;
+     const label = String(a.label || "").slice(0, 26);
+     if (Array.isArray(a.cells) && a.cells.length){
+       const cells = [];
+       for (const raw of a.cells.slice(0, 6)){
+         const c = parseCell(raw);
+         if (!c) return 'Unknown cell "' + raw + '". Valid cells: ' + CELL_NAMES.join("; ") + ".";
+         if (!cells.some(q => q.i === c.i && q.j === c.j)) cells.push(c);
+       }
+       const loops = cellUnionLoops(cells);
+       const cx = cells.reduce((s, c) => s + (GRID_B[c.i] + GRID_B[c.i+1])/2, 0)/cells.length;
+       const cy = cells.reduce((s, c) => s + (GRID_B[c.j] + GRID_B[c.j+1])/2, 0)/cells.length;
+       AI.items.push({kind:"zone", loops, center:{x:cx, y:cy}, label, ink});
+       renderAI();
+       return "Highlighted " + cells.length + " cell(s)" + (label ? ' as "' + label + '"' : "") + ".";
+     }
+     if (Array.isArray(a.polygon) && a.polygon.length >= 3){
+       const pts = a.polygon.slice(0, 12)
+         .map(q => ({x:Math.max(0, Math.min(100, +q.x || 0)), y:Math.max(0, Math.min(100, +q.y || 0))}));
+       const cx = pts.reduce((s, q) => s + q.x, 0)/pts.length, cy = pts.reduce((s, q) => s + q.y, 0)/pts.length;
+       AI.items.push({kind:"zone", loops:[pts], center:{x:cx, y:cy}, label, ink});
+       renderAI();
+       return "Highlighted a " + pts.length + "-point polygon" + (label ? ' as "' + label + '"' : "") + ".";
+     }
+     return "highlight_zone needs cells:[...] or polygon:[{x,y}, ...].";
+   }},
+
+  {name:"render_heatmap",
+   description:"Compute and display a probability heatmap on a second pitch below the board. kind 'pitch_control' = P(each area belongs to red), from positions and pace. kind 'reachability' = where a named player wins the race to the ball against the nearest opponent — the right lens for stopping or unleashing one player. The math runs locally; you receive a summary to build your answer on.",
+   input_schema:{type:"object", properties:{
+     kind:{type:"string", enum:["pitch_control","reachability"]},
+     player:{type:"string", description:"Required for reachability"}}, required:["kind"]},
+   run:(a, board)=>showHeat(computeHeat(a.kind, {player:a.player}, board))},
+
+  {name:"plot",
+   description:"Draw a chart in a panel below the board. kind 'radar' compares 1-3 named players across all nine attributes; kind 'bars' compares team averages, optionally narrowed to one unit. Values are read off the board — never supply numbers yourself.",
+   input_schema:{type:"object", properties:{
+     kind:{type:"string", enum:["radar","bars"]},
+     players:{type:"array", items:{type:"string"}, description:"For radar"},
+     unit:{type:"string", enum:["defence","midfield","attack"], description:"For bars"}}, required:["kind"]},
+   run:(a, board)=>doPlot(a, board)},
 ];
 
 const AGENT_SYSTEM = SYSTEM + `
 
-You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input. When you have enough, answer; do not narrate the tool calls.`;
+You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input.
+
+You can also RENDER. draw_actions puts coaching arrows on the board (player names for endpoints, numbered sequence, at most 6 clear actions); highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
 
 function rosterManifest(board){
   const line = team => {
@@ -3111,6 +3670,7 @@ async function callModel(question){
     return textOf(res);
   }
   if (r.kind === "slice"){
+    if (r.f.intent === "space"){ try { autoHighlightSpace(board); } catch (e) {} }
     const focus = {player:r.f.player || null, team:r.f.team || null, unit:r.f.unit || null};
     const sl = Sampler.slice(r.f.intent, board, focus);
     addMsg(`⚡ direct sample — ${r.f.intent} (~${sl.tokens} tokens)`, "tool");
@@ -3128,6 +3688,7 @@ async function ask(question){
   addMsg(question, "you");
   chatInput.value = "";
   $("chatChips").innerHTML = "";
+  clearAI(question);
 
   const wait = addMsg("", "bot");
   wait.innerHTML = `<span class="typing"><i></i><i></i><i></i></span>`;
@@ -3139,7 +3700,9 @@ async function ask(question){
     if (history.length > 12) history.splice(0, 2);         // keep the last few exchanges only
   } catch (err) {
     wait.remove();
-    addMsg(localAnswer(), "bot");
+    let rendered = [];
+    try { rendered = localRenders(question, boardJSON()); } catch (e) {}
+    addMsg(localAnswer() + (rendered.length ? "\n\nRendered locally without a model: " + rendered.join(", ") + "." : ""), "bot");
     $("chatKey").hidden = false;
     addMsg(apiKey ? "That key was rejected — check it and try again."
                   : "No model is connected, so that was read straight off the board.", "sys");
@@ -3149,11 +3712,27 @@ async function ask(question){
   chatInput.focus();
 }
 
+function localRenders(q, board){
+  const nq = q.toLowerCase(), did = [];
+  if (/heat ?map|pitch control|reachab|race map/.test(nq)){
+    const who = Sampler.mentionedPlayers(board, q)[0];
+    const kind = who && /reach|race|cover|stop/.test(nq) ? "reachability" : "pitch_control";
+    const r = showHeat(computeHeat(kind, {player: who && (who.name || "")}, board));
+    if (r && !/needs a player/.test(r)) did.push(kind.replace("_", " ") + " heatmap");
+  }
+  if (/radar|graph|chart|plot/.test(nq)){
+    const ps = Sampler.mentionedPlayers(board, q).slice(0, 3).map(p => p.name);
+    if (ps.length){ doPlot({kind:"radar", players:ps}, board); did.push("radar"); }
+  }
+  if (/\bspace\b|\bgaps?\b/.test(nq) && autoHighlightSpace(board)) did.push("space highlight");
+  return did;
+}
+
 const STARTERS = [
-  "Summarise this position",
+  "How do we stop Mbappé?",
   "Where is the space?",
-  "Can this team play a high line?",
-  "What are the weaknesses of this shape?"
+  "Show a pitch-control heatmap",
+  "Compare Mbappé and Yamal on a radar"
 ];
 function showChips(list){
   const box = $("chatChips");

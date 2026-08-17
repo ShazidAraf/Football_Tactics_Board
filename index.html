@@ -63,6 +63,11 @@
   .msg.bot b{color:#fff}
   .msg.sys{font-size:11.5px; color:var(--muted); font-style:italic}
   .msg.err{font-size:12px; color:#ff9b90}
+  .msg.tool{
+    align-self:flex-start; font:600 11px/1.3 var(--mono);
+    color:#8fd8ae; background:#1f9d5512; border:1px solid #1f9d5530;
+    border-radius:8px; padding:5px 9px;
+  }
   .typing{display:inline-flex; gap:3px; align-items:center; height:14px}
   .typing i{width:5px; height:5px; border-radius:50%; background:#6c7278; animation:blip 1.1s infinite}
   .typing i:nth-child(2){animation-delay:.15s}
@@ -2347,6 +2352,517 @@ $("resetBtn").addEventListener("click", () => {
   say("Board reset — no squad loaded");
 });
 
+/* ============================================================================
+   SAMPLER — question-driven context extraction for the tactics board
+   ----------------------------------------------------------------------------
+   Takes a board export (JSON) and a user question, returns only the slice of
+   the board that question actually needs, rendered as compact text.
+
+   Two rules drive the whole design:
+     1. COMPUTE, DON'T DUMP.  Models are poor at geometry over raw coordinates.
+        Line height, compactness and zone occupancy are calculated here and
+        handed over as facts.
+     2. RESOLVE REFERENCES.  A drawing endpoint at (55,45) is meaningless. It is
+        resolved to the nearest player, so the model reads "pass to Yamal".
+
+   Usage:  const {text, intent, focus, tokens} = Sampler.sample(question, board);
+   ========================================================================== */
+(function (root) {
+  "use strict";
+
+  const ATTR_ORDER = ["pace","stamina","composure","positioning","strength",
+                      "aerial","passing","dribbling","finishing"];
+
+  /* ── small helpers ─────────────────────────────────────────────────────── */
+  const r0 = v => Math.round(v);
+  const estTokens = s => Math.ceil(s.length / 4);
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const deburr = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const ovr = p => {
+    const r = p.ratings || {};
+    const vals = ATTR_ORDER.map(k => +r[k] || 0);
+    return Math.round(vals.reduce((a, b) => a + b, 0) / ATTR_ORDER.length);
+  };
+
+  /* Everything is normalised to "attacking distance": how far up the pitch a
+     player is from his OWN goal, so red and blue can be reasoned about alike. */
+  const up = (p, team) => team === "red" ? p.x : 100 - p.x;
+
+  function allPlayers(board){
+    const out = [];
+    for (const team of ["red","blue"]){
+      const t = board.teams?.[team];
+      if (!t) continue;
+      (t.players || []).forEach(p => out.push({...p, team, up: up(p, team)}));
+    }
+    return out;
+  }
+
+  /* ── computed metrics: the part worth paying for ───────────────────────── */
+
+  function lineHeight(board, team){                 // deepest outfielder, from own goal
+    const ps = (board.teams?.[team]?.players || []).slice(1);
+    if (!ps.length) return null;
+    return r0(Math.min(...ps.map(p => up(p, team))));
+  }
+
+  function highestMan(board, team){
+    const ps = (board.teams?.[team]?.players || []).slice(1);
+    if (!ps.length) return null;
+    return r0(Math.max(...ps.map(p => up(p, team))));
+  }
+
+  function compactness(board, team){                 // vertical (depth) and horizontal (width)
+    const ps = (board.teams?.[team]?.players || []).slice(1);
+    if (!ps.length) return {depth:0, width:0};
+    const ups = ps.map(p => up(p, team)), ys = ps.map(p => p.y);
+    return {
+      depth: r0(Math.max(...ups) - Math.min(...ups)),
+      width: r0(Math.max(...ys) - Math.min(...ys))
+    };
+  }
+
+  function describeHeight(h){
+    return h == null ? "unknown"
+         : h < 25 ? "a deep block"
+         : h < 38 ? "a low-to-mid block"
+         : h < 50 ? "a mid block"
+         : "a high line";
+  }
+
+  /* Split the eleven into units by how far up the pitch they stand, rather than
+     by their label — a "CM" pushed to x=80 is playing as a forward. */
+  function units(board, team){
+    const ps = (board.teams?.[team]?.players || []);
+    const gk = ps[0];
+    const out = [...ps.slice(1)].sort((a, b) => up(a, team) - up(b, team));
+    const n = out.length;
+    const cut1 = Math.round(n * 0.36), cut2 = Math.round(n * 0.73);
+    return {
+      keeper: gk || null,
+      defence: out.slice(0, cut1),
+      midfield: out.slice(cut1, cut2),
+      attack: out.slice(cut2)
+    };
+  }
+
+  function unitGaps(board, team){
+    const u = units(board, team);
+    const avg = arr => arr.length ? arr.reduce((s, p) => s + up(p, team), 0) / arr.length : null;
+    const d = avg(u.defence), m = avg(u.midfield), a = avg(u.attack);
+    return {
+      defenceToMidfield: d != null && m != null ? r0(m - d) : null,
+      midfieldToAttack:  m != null && a != null ? r0(a - m) : null
+    };
+  }
+
+  /* Occupancy by third × channel — the answer to "where is the space".
+     Zones are ABSOLUTE areas of the pitch (named from red's perspective), not
+     per-team: red's defensive third and blue's are opposite ends, and counting
+     them in the same bucket would describe a pitch that doesn't exist. */
+  function occupancy(board){
+    const grid = {};
+    const thirds = ["red's defensive third","middle third","blue's defensive third"];
+    const chans  = ["top","centre","bottom"];
+    for (const t of thirds) for (const c of chans) grid[t + "|" + c] = {red:0, blue:0};
+
+    for (const p of allPlayers(board)){
+      const third = p.x < 33.4 ? thirds[0] : p.x < 66.7 ? thirds[1] : thirds[2];
+      const chan  = p.y < 33.4 ? chans[0]  : p.y < 66.7 ? chans[1]  : chans[2];
+      grid[third + "|" + chan][p.team]++;
+    }
+    return grid;
+  }
+
+  function nearest(board, target, opts = {}){
+    const {team, exclude = [], count = 3} = opts;
+    return allPlayers(board)
+      .filter(p => (!team || p.team === team) && !exclude.includes(p.id) && p.id !== target.id)
+      .map(p => ({...p, d: dist(p, target)}))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, count);
+  }
+
+  const nameOf = p => p ? `${p.team === "red" ? "RED" : "BLUE"} #${p.number} ${p.name || p.role || "unnamed"}` : "nobody";
+
+  /* ── entity resolution ─────────────────────────────────────────────────── */
+
+  function nameKeys(p){
+    const full = deburr(p.name || "");
+    if (!full) return [];
+    const parts = full.split(" ");
+    return [...new Set([full, parts[parts.length - 1], parts[0]])].filter(k => k.length >= 4);
+  }
+
+  function findPlayer(board, q, teamHint){
+    const nq = " " + deburr(q).replace(/[^a-z0-9# ]/g, " ") + " ";
+    let best = null;
+    for (const p of allPlayers(board)){
+      if (!p.name) continue;
+      for (const key of nameKeys(p)){
+        if (nq.includes(" " + key + " ") || nq.includes(" " + key + "'")){
+          if (!best || key.length > best.key.length) best = {p, key};
+        }
+      }
+    }
+    if (best) return best.p;
+    const shirt = nq.match(/#(\d{1,2})\b/);            // "#10" — only with the hash, to avoid
+    if (shirt){                                        // colliding with "4-3-3" or "3 nearest"
+      let hits = allPlayers(board).filter(p => +p.number === +shirt[1]);
+      if (teamHint) hits = hits.filter(p => p.team === teamHint) .length
+                          ? hits.filter(p => p.team === teamHint) : hits;
+      if (hits.length === 1) return hits[0];
+      if (hits.length > 1) return hits[0];              // both sides wear it; take the first and
+    }                                                   // let the slice name who it picked
+    return null;
+  }
+
+  function mentionedPlayers(board, q){
+    const nq = " " + deburr(q).replace(/[^a-z0-9# ]/g, " ") + " ";
+    const hits = new Map();
+    for (const p of allPlayers(board)){
+      if (!p.name) continue;
+      if (nameKeys(p).some(k => nq.includes(" " + k + " ") || nq.includes(" " + k + "'")))
+        hits.set(p.id, p);
+    }
+    return [...hits.values()];
+  }
+
+  function matchedIntents(q){
+    const nq = deburr(q);
+    return Object.keys(RX).filter(k => RX[k].test(nq));
+  }
+
+  function findTeam(board, q){
+    const nq = deburr(q);
+    if (/\bred\b/.test(nq)) return "red";
+    if (/\bblue\b/.test(nq)) return "blue";
+    for (const team of ["red","blue"]){
+      const squad = deburr(board.teams?.[team]?.squad || "");
+      if (squad && (nq.includes(squad) || nq.includes(squad.split(" ").pop()))) return team;
+    }
+    return null;
+  }
+
+  function findUnit(q){
+    const nq = deburr(q);
+    if (/\b(defence|defense|defenders|back ?(four|three|line)|centre ?backs?|backline)\b/.test(nq)) return "defence";
+    if (/\b(midfield|midfielders|centre ?mids?|pivot)\b/.test(nq)) return "midfield";
+    if (/\b(attack|forwards?|front ?(three|two)|strikers?|wingers?)\b/.test(nq)) return "attack";
+    return null;
+  }
+
+  /* ── intent classification ─────────────────────────────────────────────── */
+
+  const RX = {
+    offboard:    /\b(what is|what's|whats|what does|define|explain the|meaning of|difference between)\b.*\b(false 9|gegenpress|tiki|inverted|libero|regista|offside rule|catenaccio|total football|xg|expected goals)\b|\bwhat is a\b|\bwhat does .* mean\b/,
+    sequence:    /\b(sequence|this move|the move|move work|arrows?|drawings?|routine|combination|passage|pattern|the pass|these passes|what i drew|i drew)\b/,
+    setpiece:    /\b(corner|free ?kick|set ?piece|throw ?in|dead ?ball)\b/,
+    feasibility: /\b(high line|press|pressing|offside trap|squeeze up|push up|drop off|hold a line)\b|\bcan (we|they|red|blue|this team) (press|play|hold|sit|squeeze|push|defend|go)\b/,
+    personnel:   /\b(sub|subs|substitut|bench|bring on|come on|take off|replace|selection|who should play|rotate)\b/,
+    comparison:  /\b(stronger|better|compare|comparison|versus|vs\b|outnumber|overmatch|who wins|which team)\b/,
+    space:       /\b(space|gap|gaps|free man|spare man|overload|exploit|where should|where can|gaps? between|open)\b/,
+    shape:       /\b(shape|formation|structure|compact|weakness|vulnerab|block|balanced|too deep|too high|spacing)\b/
+  };
+
+  function classify(board, q){
+    const nq = deburr(q);
+    const team = findTeam(board, q);
+    const player = findPlayer(board, q, team);
+    const unit = findUnit(q);
+
+    // Off-board questions get no board data at all.
+    if (RX.offboard.test(nq) && !player && !unit) return {intent:"offboard", player, team, unit};
+
+    // Order matters: a question can mention a player AND be about a substitution.
+    if (RX.personnel.test(nq))   return {intent:"personnel",   player, team, unit};
+    if (RX.setpiece.test(nq))    return {intent:"setpiece",    player, team, unit};
+    if (RX.sequence.test(nq))    return {intent:"sequence",    player, team, unit};
+    if (RX.feasibility.test(nq)) return {intent:"feasibility", player, team, unit};
+    if (RX.comparison.test(nq))  return {intent:"comparison",  player, team, unit};
+    if (player)                  return {intent:"player",      player, team, unit};
+    if (RX.space.test(nq))       return {intent:"space",       player, team, unit};
+    if (RX.shape.test(nq))       return {intent:"shape",       player, team, unit};
+    return {intent:"overview", player, team, unit};
+  }
+
+  /* ── renderers ─────────────────────────────────────────────────────────── */
+
+  const POS = p => `x=${r0(p.x)} y=${r0(p.y)}`;
+  const RATINGS = p => ATTR_ORDER.map(k => (p.ratings || {})[k] ?? "?").join("/");
+  const SOME = (p, keys) => keys.map(k => `${k} ${(p.ratings || {})[k] ?? "?"}`).join(", ");
+
+  const HEADER = [
+    "Pitch: x 0 (left goal line) to 100 (right goal line), y 0 (top touchline) to 100 (bottom).",
+    "RED attacks towards x=100, BLUE towards x=0. Heights below are already measured from each team's OWN goal."
+  ].join("\n");
+
+  function teamTag(board, team){
+    const t = board.teams?.[team] || {};
+    return `${team.toUpperCase()} (${t.squad || "unnamed"}, ${t.formation || "?"})`;
+  }
+
+  function ballLine(board){
+    const b = board.ball;
+    if (!b) return "Ball: unknown.";
+    if (!b.owner) return `Ball: loose at x=${r0(b.x)} y=${r0(b.y)}, nobody in possession.`;
+    const p = allPlayers(board).find(x => x.id === b.owner);
+    return `Ball: with ${nameOf(p)} at ${POS(p)}.`;
+  }
+
+  function drawingsResolved(board, filter){
+    const list = (board.drawings || []).filter(filter || (() => true));
+    if (!list.length) return null;
+    const words = {run:"run off the ball", pass:"ground pass", lob:"lofted pass in the air",
+                   dribble:"dribble with the ball", shot:"shot", hold:"move and hold",
+                   link:"marking job / passing lane", zone:"shaded zone", line:"defensive line marker"};
+    const who = pt => {
+      const near = allPlayers(board).map(p => ({p, d: dist(p, pt)})).sort((a,b) => a.d - b.d)[0];
+      return near && near.d < 8 ? nameOf(near.p) : `open space (${POS(pt)})`;
+    };
+    return list.map(s => {
+      const a = s.points[0], b = s.points[s.points.length - 1];
+      const tag = s.sequence ? `${s.sequence}. ` : "- ";
+      if (s.type === "zone") return `${tag}${words.zone} covering x=${r0(a.x)}-${r0(b.x)}, y=${r0(a.y)}-${r0(b.y)}`;
+      return `${tag}${words[s.type] || s.type}: ${who(a)} → ${who(b)}`;
+    }).join("\n");
+  }
+
+  const SLICE = {
+
+    /* nothing at all — the question is not about this board */
+    offboard(){ return "(No board data needed for this question.)"; },
+
+    /* one player, his immediate surroundings, and anything drawn on him */
+    player(board, f){
+      const p = f.player;
+      const mates = nearest(board, p, {team:p.team, count:3});
+      const opps  = nearest(board, p, {team:p.team === "red" ? "blue" : "red", count:3});
+      const draws = drawingsResolved(board, s =>
+        s.points.some(pt => dist(pt, p) < 8));
+      const out = [
+        HEADER, "",
+        `FOCUS: ${nameOf(p)}, listed position ${p.role}${p.position && p.position !== p.role ? ` (natural ${p.position})` : ""}, at ${POS(p)}.`,
+        `  ${teamTag(board, p.team)} — he stands ${r0(p.up)} units up the pitch from his own goal.`,
+        `  Ratings (${ATTR_ORDER.join("/")}): ${RATINGS(p)} — overall ${ovr(p)}.`,
+        "",
+        "Nearest teammates:",
+        ...mates.map(m => `  ${nameOf(m)} ${POS(m)} — ${r0(m.d)} units away`),
+        "Nearest opponents:",
+        ...opps.map(m => `  ${nameOf(m)} ${POS(m)} — ${r0(m.d)} units away, pace ${(m.ratings||{}).pace ?? "?"}`),
+        "", ballLine(board)
+      ];
+      if (draws) out.push("", "Drawings involving him:", draws);
+      return out.join("\n");
+    },
+
+    /* positions and structure only — no ratings, no bench */
+    shape(board, f){
+      const teams = f.team ? [f.team] : ["red","blue"];
+      const out = [HEADER, ""];
+      for (const team of teams){
+        const u = units(board, team), g = unitGaps(board, team), c = compactness(board, team);
+        const h = lineHeight(board, team);
+        out.push(`${teamTag(board, team)}`);
+        out.push(`  Line height ${h} from own goal — ${describeHeight(h)}. Highest man at ${highestMan(board, team)}.`);
+        out.push(`  Team depth ${c.depth} units, width ${c.width} units.`);
+        out.push(`  Gap defence→midfield ${g.defenceToMidfield}, midfield→attack ${g.midfieldToAttack}.`);
+        for (const [label, arr] of [["Defence", u.defence], ["Midfield", u.midfield], ["Attack", u.attack]]){
+          out.push(`  ${label}: ${arr.map(p => `${p.name || p.role} ${POS(p)}`).join("; ")}`);
+        }
+        out.push("");
+      }
+      out.push(ballLine(board));
+      return out.join("\n");
+    },
+
+    /* the occupancy grid does the geometry the model would otherwise guess at */
+    space(board){
+      const grid = occupancy(board);
+      const rows = Object.entries(grid).map(([k, v]) => {
+        const [third, chan] = k.split("|");
+        if (!v.red && !v.blue) return `  ${third}, ${chan}: EMPTY`;
+        const edge = v.red === v.blue ? "even" :
+                     v.red > v.blue ? `RED +${v.red - v.blue}` : `BLUE +${v.blue - v.red}`;
+        return `  ${third}, ${chan} channel: red ${v.red}, blue ${v.blue} (${edge})`;
+      });
+      return [
+        HEADER,
+        "Zones below are fixed areas of the pitch: 'top' is y<33, 'bottom' is y>67.",
+        "",
+        `${teamTag(board,"red")} line height ${lineHeight(board,"red")} (${describeHeight(lineHeight(board,"red"))}), depth ${compactness(board,"red").depth}.`,
+        `${teamTag(board,"blue")} line height ${lineHeight(board,"blue")} (${describeHeight(lineHeight(board,"blue"))}), depth ${compactness(board,"blue").depth}.`,
+        "",
+        "Players per zone:",
+        ...rows,
+        "",
+        ballLine(board)
+      ].join("\n");
+    },
+
+    /* drawings with both ends resolved to people */
+    sequence(board){
+      const d = drawingsResolved(board);
+      if (!d) return [HEADER, "", "There are no drawings on the board.", ballLine(board)].join("\n");
+      const involved = new Set();
+      for (const s of (board.drawings || []))
+        for (const pt of s.points){
+          const n = allPlayers(board).map(p => ({p, d: dist(p, pt)})).sort((a,b) => a.d - b.d)[0];
+          if (n && n.d < 8) involved.add(n.p.id);
+        }
+      const people = allPlayers(board).filter(p => involved.has(p.id));
+      return [
+        HEADER, "",
+        "Move drawn on the board, in order:", d, "",
+        "Players involved:",
+        ...people.map(p => `  ${nameOf(p)} (${p.role}) ${POS(p)} — ${SOME(p, ["pace","passing","dribbling","finishing"])}`),
+        "", ballLine(board)
+      ].join("\n");
+    },
+
+    /* squad depth: ratings matter, positions do not */
+    personnel(board, f){
+      const team = f.team || (f.player ? f.player.team : "red");
+      const t = board.teams?.[team] || {};
+      const bench = (board.bench?.[team] || []);
+      return [
+        `${teamTag(board, team)} — selection question.`,
+        `Ratings order: ${ATTR_ORDER.join("/")}.`,
+        "",
+        "On the pitch:",
+        ...(t.players || []).map(p => `  #${p.number} ${p.name || p.role} (${p.role}) OVR ${ovr(p)} — ${RATINGS(p)}`),
+        "",
+        bench.length ? "On the bench:" : "The bench is empty.",
+        ...bench.map(b => `  #${b.n} ${b.name || "unnamed"} (${b.pos || "?"}) OVR ${ovr(b)} — ${RATINGS(b)}`),
+        f.player ? `\nThe question is about ${nameOf(f.player)}.` : ""
+      ].join("\n");
+    },
+
+    /* both teams, narrowed to the unit in question */
+    comparison(board, f){
+      const out = [`Ratings order: ${ATTR_ORDER.join("/")}.`, ""];
+      for (const team of ["red","blue"]){
+        const u = units(board, team);
+        const pick = f.unit ? u[f.unit] : [...u.defence, ...u.midfield, ...u.attack];
+        out.push(`${teamTag(board, team)}${f.unit ? " — " + f.unit : ""}:`);
+        out.push(...pick.map(p => `  #${p.number} ${p.name || p.role} (${p.role}) OVR ${ovr(p)} — ${RATINGS(p)}`));
+        out.push("");
+      }
+      return out.join("\n");
+    },
+
+    /* can this defence do what is being asked of it? */
+    feasibility(board, f){
+      const team = f.team || "red";
+      const other = team === "red" ? "blue" : "red";
+      const u = units(board, team), ou = units(board, other);
+      const h = lineHeight(board, team);
+      return [
+        HEADER, "",
+        `${teamTag(board, team)} currently sits at line height ${h} from its own goal — ${describeHeight(h)}.`,
+        `Team depth ${compactness(board, team).depth} units.`,
+        "",
+        "Their defenders (the constraint on how high the line can sit):",
+        ...u.defence.map(p => `  #${p.number} ${p.name || p.role} ${POS(p)} — ${SOME(p, ["pace","positioning","stamina","composure"])}`),
+        u.keeper ? `  Keeper ${u.keeper.name || "GK"} at ${POS(u.keeper)} — ${SOME(u.keeper, ["pace","positioning","composure"])}` : "  No keeper on the board.",
+        "",
+        "Their midfield (who must press and recover):",
+        ...u.midfield.map(p => `  #${p.number} ${p.name || p.role} — ${SOME(p, ["pace","stamina","positioning"])}`),
+        "",
+        `Opposition forwards to be defended against (${teamTag(board, other)}):`,
+        ...ou.attack.map(p => `  #${p.number} ${p.name || p.role} ${POS(p)} — ${SOME(p, ["pace","dribbling","finishing"])}`),
+        "", ballLine(board)
+      ].join("\n");
+    },
+
+    /* only what is inside the relevant penalty area */
+    setpiece(board, f){
+      const inBox = p => p.up < 22 || p.up > 78;
+      const men = allPlayers(board).filter(inBox);
+      const draws = drawingsResolved(board);
+      return [
+        HEADER, "",
+        "Players in or around either penalty area:",
+        ...men.map(p => `  ${nameOf(p)} (${p.role}) ${POS(p)} — ${SOME(p, ["aerial","strength","positioning"])}`),
+        "",
+        `Everyone else is outside both boxes (${allPlayers(board).length - men.length} players).`,
+        draws ? "\nDrawings on the board:\n" + draws : "",
+        "", ballLine(board)
+      ].join("\n");
+    },
+
+    /* the cheap default: structure without individuals */
+    overview(board){
+      const out = [HEADER, ""];
+      for (const team of ["red","blue"]){
+        if (!(board.teams?.[team]?.players || []).length){ out.push(`${team.toUpperCase()}: no players on the board.`); continue; }
+        const h = lineHeight(board, team), c = compactness(board, team), g = unitGaps(board, team);
+        out.push(`${teamTag(board, team)}: line height ${h} (${describeHeight(h)}), depth ${c.depth}, width ${c.width}, ` +
+                 `unit gaps ${g.defenceToMidfield}/${g.midfieldToAttack}.`);
+      }
+      out.push("", ballLine(board));
+      const n = (board.drawings || []).length;
+      out.push(n ? `${n} drawing(s) on the board — ask about the move for detail.` : "No drawings on the board.");
+      return out.join("\n");
+    }
+  };
+
+  /* ── public API ────────────────────────────────────────────────────────── */
+
+  function slice(intent, board, focus = {}){
+    const f = {intent, player: null, team: focus.team || null, unit: focus.unit || null};
+    if (focus.player){
+      f.player = typeof focus.player === "string"
+        ? findPlayer(board, " " + focus.player + " ", f.team)
+        : focus.player;
+      if (!f.player && typeof focus.player === "string")
+        return {intent, text: `No player called "${focus.player}" on the board. Players: ` +
+                allPlayers(board).map(p => `${p.team} ${p.name || "#" + p.number}`).join(", ") + ".",
+                tokens: 60};
+    }
+    const render = SLICE[intent] || SLICE.overview;
+    let text;
+    try { text = render(board, f); }
+    catch (err) {
+      try { text = SLICE.overview(board, f); }
+      catch (err2) { text = "(The board could not be read.)"; }
+    }
+    return {intent, text, tokens: estTokens(text)};
+  }
+
+  function sample(question, board){
+    const f = classify(board, question || "");
+    const render = SLICE[f.intent] || SLICE.overview;
+    let text;
+    try { text = render(board, f); }
+    catch (err) {
+      try { text = SLICE.overview(board, f); }             // fall back to the cheap slice
+      catch (err2) { text = "(The board could not be read.)"; }
+    }
+    return {
+      intent: f.intent,
+      focus: {
+        player: f.player ? (f.player.name || `#${f.player.number}`) : null,
+        team: f.team,
+        unit: f.unit
+      },
+      text,
+      tokens: estTokens(text)
+    };
+  }
+
+  const Sampler = {sample, classify, slice, estTokens,
+                   find: (board, name, team) => findPlayer(board, " " + name + " ", team || null),
+                   mentionedPlayers, matchedIntents,
+                   metrics: {lineHeight, compactness, unitGaps, occupancy, units}};
+
+  if (typeof module !== "undefined" && module.exports) module.exports = Sampler;
+  else root.Sampler = Sampler;
+
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+
 /* ── the analyst ────────────────────────────────────────────
    Everything the board knows is serialised into a compact briefing so the model
    answers about THIS position rather than football in general. */
@@ -2356,56 +2872,10 @@ let apiKey = "", askAbout = null, busy = false;
 
 const r0 = v => Math.round(v);
 
-function describeTeam(team){
-  const label = sq[team].value || "unnamed side";
-  const shape = sel[team].value === "custom" ? "custom shape" : sel[team].value;
-  const dir = team === "red" ? "left to right (attacking the x=100 goal)" : "right to left (attacking the x=0 goal)";
-  const lines = [`${team.toUpperCase()} — ${label}, ${shape}, attacking ${dir}`];
-  for (let i = 1; i <= 11; i++){
-    const p = players.get(`${team}-${i}`);
-    const r = ATTRS.map(a => p.ratings[a.k]).join("/");
-    lines.push(`  #${p.n} ${p.name || "unnamed"} (${p.label}) at x=${r0(p.x)} y=${r0(p.y)} · OVR ${overall(p.ratings)} · ${r}`);
-  }
-  const bench = BENCH[team];
-  if (bench.length){
-    lines.push(`  Bench: ${bench.map(b => `#${b.n} ${b.name || "unnamed"} (${b.pos || "?"}, OVR ${overall(b.ratings)})`).join("; ")}`);
-  }
-  return lines.join("\n");
-}
-
 function describeBall(){
   if (!BALL.owner) return `Ball: loose at x=${r0(BALL.x)} y=${r0(BALL.y)} — nobody in possession.`;
   const p = players.get(BALL.owner);
   return `Ball: with ${p.team.toUpperCase()} #${p.n} ${p.name || p.label} at x=${r0(p.x)} y=${r0(p.y)}.`;
-}
-
-function describeDrawings(){
-  if (!SHAPES.length) return "Drawings: none on the board.";
-  const words = {run:"run off the ball", pass:"ground pass", lob:"lofted pass through the air",
-                 dribble:"dribble carrying the ball", shot:"shot at goal", hold:"move and hold position",
-                 link:"marking job or passing lane", zone:"shaded zone", line:"defensive/offside line"};
-  const rows = SHAPES.map(s => {
-    const a = s.pts[0], b = s.pts[s.pts.length-1];
-    const n = s.n ? `${s.n}. ` : "- ";
-    return `  ${n}${words[s.type]} from x=${r0(a.x)} y=${r0(a.y)} to x=${r0(b.x)} y=${r0(b.y)}`;
-  });
-  return "Drawings (numbered ones are the sequence, in order):\n" + rows.join("\n");
-}
-
-function boardBriefing(){
-  return [
-    "CURRENT BOARD STATE",
-    "Pitch coordinates: x runs 0 (left goal line) to 100 (right goal line); y runs 0 (top touchline) to 100 (bottom touchline). Halfway is x=50.",
-    `Ratings are 0-100 in this order: ${ATTRS.map(a => a.k).join(", ")}.`,
-    "",
-    describeTeam("red"),
-    "",
-    describeTeam("blue"),
-    "",
-    describeBall(),
-    describeDrawings(),
-    askAbout ? `\nThe user has selected ${askAbout.team.toUpperCase()} #${askAbout.n} ${askAbout.name || askAbout.label} and is likely asking about him.` : ""
-  ].join("\n");
 }
 
 const SYSTEM = `You are an experienced football coach reading a tactics board with the user, who is learning tactics.
@@ -2453,7 +2923,132 @@ function localAnswer(){
   return parts.join("\n\n") + "\n\nThat is everything I can work out on my own. For open questions — why a shape is vulnerable, what the next pass should be — connect a model with an API key using the box below.";
 }
 
-async function callModel(question){
+/* ── agentic pipeline ───────────────────────────────────────
+   A deterministic router picks HOW MUCH autonomy a question gets; the model
+   picks WHICH tools inside the agent route.
+     none   — off-board question: no tools, no board data
+     slice  — confidently classified: the sampled slice is fed straight in
+     agent  — ambiguous / multi-part / multi-player: the model calls tools   */
+
+function playerFromBoard(board, id){
+  for (const team of ["red","blue"])
+    for (const p of (board.teams?.[team]?.players || []))
+      if (p.id === id) return {...p, team};
+  return null;
+}
+
+function route(question, board){
+  const f = Sampler.classify(board, question);
+  if (askAbout && !f.player){                              // a clicked player anchors pronouns
+    const p = playerFromBoard(board, askAbout.id);
+    if (p){ f.player = p; if (f.intent === "overview") f.intent = "player"; }
+  }
+  if (f.intent === "offboard") return {kind:"none", f};
+  const intents = Sampler.matchedIntents(question).filter(k => k !== "offboard");
+  const people  = Sampler.mentionedPlayers(board, question);
+  if (intents.length >= 2 || people.length >= 2 || f.intent === "overview")
+    return {kind:"agent", f};
+  return {kind:"slice", f};
+}
+
+/* tools: each wraps a sampler slice or a computation the model is bad at */
+const segDist = (p, a, b) => {
+  const dx = b.x - a.x, dy = b.y - a.y, L = dx*dx + dy*dy;
+  const t = L ? Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / L)) : 0;
+  return Math.hypot(p.x - (a.x + t*dx), p.y - (a.y + t*dy));
+};
+
+const AGENT_TOOLS = [
+  {name:"get_player",
+   description:"Everything about one player: position, ratings, nearest teammates and opponents with distances, drawings involving him.",
+   input_schema:{type:"object", properties:{
+     player:{type:"string", description:"Name, surname, or '#'+shirt number"},
+     team:{type:"string", enum:["red","blue"], description:"Disambiguates shared shirt numbers"}}, required:["player"]},
+   run:(a,b)=>Sampler.slice("player", b, {player:a.player, team:a.team||null}).text},
+
+  {name:"get_shape",
+   description:"Team structure: line heights, depth, width, unit gaps, and every position grouped into defence/midfield/attack. No ratings.",
+   input_schema:{type:"object", properties:{team:{type:"string", enum:["red","blue"], description:"Omit for both teams"}}},
+   run:(a,b)=>Sampler.slice("shape", b, {team:a.team||null}).text},
+
+  {name:"get_space",
+   description:"Occupancy grid — how many players from each side stand in every third × channel of the pitch. The answer to where the space is.",
+   input_schema:{type:"object", properties:{}},
+   run:(a,b)=>Sampler.slice("space", b).text},
+
+  {name:"get_sequence",
+   description:"Every drawing on the board in order, with endpoints resolved to player names, plus the players involved.",
+   input_schema:{type:"object", properties:{}},
+   run:(a,b)=>Sampler.slice("sequence", b).text},
+
+  {name:"get_personnel",
+   description:"One team's XI and full bench with complete ratings. For substitution and selection questions.",
+   input_schema:{type:"object", properties:{team:{type:"string", enum:["red","blue"]}}, required:["team"]},
+   run:(a,b)=>a.team ? Sampler.slice("personnel", b, {team:a.team}).text
+                     : "get_personnel needs a team: red or blue."},
+
+  {name:"compare_units",
+   description:"Both teams' ratings side by side, narrowed to one unit.",
+   input_schema:{type:"object", properties:{unit:{type:"string", enum:["defence","midfield","attack"], description:"Omit for the whole XI"}}},
+   run:(a,b)=>Sampler.slice("comparison", b, {unit:a.unit||null}).text},
+
+  {name:"check_feasibility",
+   description:"Can this team press or hold a high line? Their defenders' pace and positioning, keeper's sweeping range, midfield stamina, and the opposing forwards they would face.",
+   input_schema:{type:"object", properties:{team:{type:"string", enum:["red","blue"]}}, required:["team"]},
+   run:(a,b)=>a.team ? Sampler.slice("feasibility", b, {team:a.team}).text
+                     : "check_feasibility needs a team: red or blue."},
+
+  {name:"get_setpiece",
+   description:"Only the players inside either penalty area, with aerial, strength and positioning ratings, plus any drawings.",
+   input_schema:{type:"object", properties:{}},
+   run:(a,b)=>Sampler.slice("setpiece", b).text},
+
+  {name:"get_overview",
+   description:"The cheap summary: formations, line heights, compactness, unit gaps, the ball, drawing count.",
+   input_schema:{type:"object", properties:{}},
+   run:(a,b)=>Sampler.slice("overview", b).text},
+
+  {name:"measure",
+   description:"Distance between two named players, in pitch units and approximate metres, plus the closest opponent to the passing lane between them.",
+   input_schema:{type:"object", properties:{
+     from:{type:"string"}, to:{type:"string"}}, required:["from","to"]},
+   run:(a, board)=>{
+     const p = Sampler.find(board, a.from), q = Sampler.find(board, a.to);
+     if (!p || !q) return `Could not find ${!p ? '"'+a.from+'"' : '"'+a.to+'"'} — use get_overview or get_shape to see who is on the board.`;
+     const units = Math.hypot(p.x-q.x, p.y-q.y);
+     const metres = Math.hypot((p.x-q.x)*1.05, (p.y-q.y)*0.68);
+     const opp = [];
+     for (const team of ["red","blue"]){
+       if (team === p.team) continue;
+       for (const o of (board.teams?.[team]?.players || []))
+         opp.push({o, d: segDist(o, p, q)});
+     }
+     opp.sort((x,y)=>x.d-y.d);
+     const near = opp[0];
+     return `${p.name || p.role} (x=${Math.round(p.x)} y=${Math.round(p.y)}) to ${q.name || q.role} (x=${Math.round(q.x)} y=${Math.round(q.y)}): ` +
+            `${Math.round(units)} pitch units, roughly ${Math.round(metres)}m. ` +
+            (near ? `Closest opponent to that line: ${near.o.name || near.o.role}, ${Math.round(near.d)} units off it.` : "No opponents on the board.");
+   }},
+];
+
+const AGENT_SYSTEM = SYSTEM + `
+
+You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input. When you have enough, answer; do not narrate the tool calls.`;
+
+function rosterManifest(board){
+  const line = team => {
+    const t = board.teams?.[team] || {};
+    const names = (t.players || []).map(p => p.name || "#"+p.number).join(", ");
+    return `${team.toUpperCase()} = ${t.squad || "unnamed"} (${t.formation || "?"}): ${names}.`;
+  };
+  const b = board.ball;
+  const ball = !b ? "" : !b.owner ? " Ball loose." :
+    " Ball with " + (playerFromBoard(board, b.owner)?.name || b.owner) + ".";
+  const sel = askAbout ? ` The user has selected ${askAbout.name || askAbout.label}.` : "";
+  return "ON THE BOARD: " + line("red") + " " + line("blue") + ball + sel;
+}
+
+async function api(payload){
   const headers = {"content-type":"application/json"};
   if (apiKey){                                             // needed when self-hosted; not inside Claude
     headers["x-api-key"] = apiKey;
@@ -2461,18 +3056,69 @@ async function callModel(question){
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
   const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers,
-    body: JSON.stringify({
-      model:"claude-sonnet-4-6",
-      max_tokens:1000,
-      system: SYSTEM,
-      messages: [...history, {role:"user", content: boardBriefing() + "\n\nQUESTION: " + question}]
-    })
+    method:"POST", headers,
+    body: JSON.stringify({model:"claude-sonnet-4-6", max_tokens:1000, ...payload})
   });
   if (!res.ok) throw new Error("HTTP " + res.status);
   const data = await res.json();
-  return data.content.filter(c => c.type === "text").map(c => c.text).join("\n").trim();
+  if (!Array.isArray(data.content)) throw new Error("bad response");
+  return data;
+}
+
+const textOf = res => res.content.filter(c => c.type === "text").map(c => c.text).join("\n").trim();
+
+function logTool(name, input){
+  const args = Object.values(input || {}).filter(v => v != null && v !== "").join(", ");
+  addMsg(`⚙ ${name}${args ? " · " + args : ""}`, "tool");
+}
+
+async function runAgent(question, board){
+  const schemas = AGENT_TOOLS.map(({name, description, input_schema}) => ({name, description, input_schema}));
+  const msgs = [...history, {role:"user", content: rosterManifest(board) + "\n\nQUESTION: " + question}];
+  let calls = 0;
+  for (let round = 0; round < 4; round++){
+    const res = await api({system:AGENT_SYSTEM, messages:msgs, tools:schemas});
+    const uses = res.content.filter(c => c.type === "tool_use");
+    if (res.stop_reason !== "tool_use" || !uses.length) return textOf(res);
+    msgs.push({role:"assistant", content:res.content});
+    const results = [];
+    for (const tu of uses){
+      let out;
+      if (++calls > 6){
+        out = "Tool budget exhausted — answer with what you already have.";
+      } else {
+        logTool(tu.name, tu.input);
+        const tool = AGENT_TOOLS.find(t => t.name === tu.name);
+        try { out = tool ? tool.run(tu.input || {}, board)
+                         : `Unknown tool "${tu.name}". Available: ${AGENT_TOOLS.map(t=>t.name).join(", ")}.`; }
+        catch (err) { out = "Tool failed: " + err.message; }
+      }
+      results.push({type:"tool_result", tool_use_id:tu.id, content:String(out)});
+    }
+    msgs.push({role:"user", content:results});
+  }
+  msgs.push({role:"user", content:"Answer now with what you have — no more tools."});
+  return textOf(await api({system:AGENT_SYSTEM, messages:msgs}));
+}
+
+async function callModel(question){
+  const board = boardJSON();
+  const r = route(question, board);
+
+  if (r.kind === "none"){
+    addMsg("⚡ no board data needed", "tool");
+    const res = await api({system:SYSTEM, messages:[...history, {role:"user", content:question}]});
+    return textOf(res);
+  }
+  if (r.kind === "slice"){
+    const focus = {player:r.f.player || null, team:r.f.team || null, unit:r.f.unit || null};
+    const sl = Sampler.slice(r.f.intent, board, focus);
+    addMsg(`⚡ direct sample — ${r.f.intent} (~${sl.tokens} tokens)`, "tool");
+    const res = await api({system:SYSTEM,
+      messages:[...history, {role:"user", content: sl.text + "\n\nQUESTION: " + question}]});
+    return textOf(res);
+  }
+  return runAgent(question, board);
 }
 
 async function ask(question){
@@ -2489,7 +3135,7 @@ async function ask(question){
   try {
     const reply = await callModel(question);
     wait.textContent = reply || "(no answer came back)";
-    history.push({role:"user", content: question}, {role:"assistant", content: reply});
+    history.push({role:"user", content: question}, {role:"assistant", content: reply || ""});
     if (history.length > 12) history.splice(0, 2);         // keep the last few exchanges only
   } catch (err) {
     wait.remove();
@@ -2580,7 +3226,7 @@ function teamJSON(team){
   return out;
 }
 
-$("exportBtn").addEventListener("click", () => {
+function boardJSON(){
   const data = {
     app: "football-tactics-board",
     exportedAt: new Date().toISOString(),
@@ -2612,7 +3258,11 @@ $("exportBtn").addEventListener("click", () => {
     customFormations: CUSTOMS,
     customScenarios: MY_SCENARIOS
   };
+  return data;
+}
 
+$("exportBtn").addEventListener("click", () => {
+  const data = boardJSON();
   const safe = s => s.replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"").toLowerCase() || "custom";
   const label = t => sq[t].value || sel[t].value;
   const file = `tactics-red-${safe(label("red"))}-vs-blue-${safe(label("blue"))}.json`;

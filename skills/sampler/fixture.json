@@ -1,0 +1,1031 @@
+{
+  "app": "football-tactics-board",
+  "exportedAt": "2026-08-17T12:07:55.137Z",
+  "coordinates": {
+    "space": "pitch-percent",
+    "x": "0 = left goal line, 100 = right goal line",
+    "y": "0 = top touchline, 100 = bottom touchline",
+    "note": "0–100 spans the pitch; values just outside sit on the board margin"
+  },
+  "ratingScale": {
+    "min": 0,
+    "max": 100,
+    "attributes": [
+      "pace",
+      "stamina",
+      "composure",
+      "positioning",
+      "strength",
+      "aerial",
+      "passing",
+      "dribbling",
+      "finishing"
+    ]
+  },
+  "notation": {
+    "run": "solid arrow — movement without the ball",
+    "pass": "dashed arrow — pass along the ground",
+    "lob": "arced long-short dashed arrow — lofted or long pass through the air",
+    "dribble": "wavy arrow — carrying the ball",
+    "shot": "double-line arrow — strike at goal",
+    "hold": "arrow with end bar — move here and hold",
+    "link": "dotted line — marking job or passing lane",
+    "zone": "shaded rectangle — space to attack, press or protect",
+    "line": "barred line — defensive height or offside line"
+  },
+  "teams": {
+    "red": {
+      "formation": "4-3-3",
+      "squad": "Real Madrid",
+      "attacking": "right",
+      "players": [
+        {
+          "id": "red-1",
+          "number": 1,
+          "name": "Courtois",
+          "role": "GK",
+          "position": "GK",
+          "face": null,
+          "x": 2,
+          "y": 50,
+          "onPitch": true,
+          "overall": 65,
+          "ratings": {
+            "pace": 45,
+            "stamina": 60,
+            "composure": 90,
+            "positioning": 92,
+            "strength": 78,
+            "aerial": 86,
+            "passing": 72,
+            "dribbling": 45,
+            "finishing": 20
+          }
+        },
+        {
+          "id": "red-2",
+          "number": 17,
+          "name": "Cucurella",
+          "role": "LB",
+          "position": "LB",
+          "face": null,
+          "x": 16,
+          "y": 12,
+          "onPitch": true,
+          "overall": 74,
+          "ratings": {
+            "pace": 80,
+            "stamina": 88,
+            "composure": 82,
+            "positioning": 84,
+            "strength": 74,
+            "aerial": 58,
+            "passing": 80,
+            "dribbling": 76,
+            "finishing": 48
+          }
+        },
+        {
+          "id": "red-3",
+          "number": 4,
+          "name": "Huijsen",
+          "role": "CB",
+          "position": "CB",
+          "face": null,
+          "x": 16,
+          "y": 37,
+          "onPitch": true,
+          "overall": 76,
+          "ratings": {
+            "pace": 80,
+            "stamina": 78,
+            "composure": 88,
+            "positioning": 84,
+            "strength": 80,
+            "aerial": 82,
+            "passing": 90,
+            "dribbling": 70,
+            "finishing": 35
+          }
+        },
+        {
+          "id": "red-4",
+          "number": 16,
+          "name": "Konaté",
+          "role": "CB",
+          "position": "CB",
+          "face": null,
+          "x": 16,
+          "y": 63,
+          "onPitch": true,
+          "overall": 72,
+          "ratings": {
+            "pace": 89,
+            "stamina": 80,
+            "composure": 70,
+            "positioning": 74,
+            "strength": 90,
+            "aerial": 88,
+            "passing": 68,
+            "dribbling": 58,
+            "finishing": 30
+          }
+        },
+        {
+          "id": "red-5",
+          "number": 24,
+          "name": "Dumfries",
+          "role": "RB",
+          "position": "RB",
+          "face": null,
+          "x": 16,
+          "y": 88,
+          "onPitch": true,
+          "overall": 75,
+          "ratings": {
+            "pace": 82,
+            "stamina": 88,
+            "composure": 70,
+            "positioning": 72,
+            "strength": 86,
+            "aerial": 80,
+            "passing": 68,
+            "dribbling": 66,
+            "finishing": 60
+          }
+        },
+        {
+          "id": "red-6",
+          "number": 5,
+          "name": "Bellingham",
+          "role": "CM",
+          "position": "CM",
+          "face": null,
+          "x": 33,
+          "y": 32,
+          "onPitch": true,
+          "overall": 84,
+          "ratings": {
+            "pace": 80,
+            "stamina": 88,
+            "composure": 88,
+            "positioning": 86,
+            "strength": 86,
+            "aerial": 76,
+            "passing": 84,
+            "dribbling": 84,
+            "finishing": 82
+          }
+        },
+        {
+          "id": "red-7",
+          "number": 14,
+          "name": "Tchouaméni",
+          "role": "DM",
+          "position": "DM",
+          "face": null,
+          "x": 27,
+          "y": 50,
+          "onPitch": true,
+          "overall": 74,
+          "ratings": {
+            "pace": 72,
+            "stamina": 84,
+            "composure": 76,
+            "positioning": 82,
+            "strength": 86,
+            "aerial": 84,
+            "passing": 76,
+            "dribbling": 62,
+            "finishing": 40
+          }
+        },
+        {
+          "id": "red-8",
+          "number": 8,
+          "name": "Valverde",
+          "role": "CM",
+          "position": "CM",
+          "face": null,
+          "x": 33,
+          "y": 68,
+          "onPitch": true,
+          "overall": 82,
+          "ratings": {
+            "pace": 86,
+            "stamina": 95,
+            "composure": 84,
+            "positioning": 84,
+            "strength": 86,
+            "aerial": 70,
+            "passing": 82,
+            "dribbling": 78,
+            "finishing": 76
+          }
+        },
+        {
+          "id": "red-9",
+          "number": 7,
+          "name": "Vinícius Jr",
+          "role": "LW",
+          "position": "LW",
+          "face": null,
+          "x": 44,
+          "y": 14,
+          "onPitch": true,
+          "overall": 76,
+          "ratings": {
+            "pace": 95,
+            "stamina": 82,
+            "composure": 68,
+            "positioning": 74,
+            "strength": 70,
+            "aerial": 52,
+            "passing": 74,
+            "dribbling": 94,
+            "finishing": 76
+          }
+        },
+        {
+          "id": "red-10",
+          "number": 10,
+          "name": "Mbappé",
+          "role": "ST",
+          "position": "ST",
+          "face": null,
+          "x": 47,
+          "y": 50,
+          "onPitch": true,
+          "overall": 84,
+          "ratings": {
+            "pace": 96,
+            "stamina": 78,
+            "composure": 88,
+            "positioning": 90,
+            "strength": 78,
+            "aerial": 66,
+            "passing": 74,
+            "dribbling": 92,
+            "finishing": 96
+          }
+        },
+        {
+          "id": "red-11",
+          "number": 11,
+          "name": "Rodrygo",
+          "role": "RW",
+          "position": "RW",
+          "face": null,
+          "x": 44,
+          "y": 86,
+          "onPitch": true,
+          "overall": 75,
+          "ratings": {
+            "pace": 88,
+            "stamina": 78,
+            "composure": 76,
+            "positioning": 78,
+            "strength": 60,
+            "aerial": 50,
+            "passing": 80,
+            "dribbling": 88,
+            "finishing": 74
+          }
+        }
+      ]
+    },
+    "blue": {
+      "formation": "4-3-3",
+      "squad": "Barcelona",
+      "attacking": "left",
+      "players": [
+        {
+          "id": "blue-1",
+          "number": 1,
+          "name": "Joan García",
+          "role": "GK",
+          "position": "GK",
+          "face": null,
+          "x": 98,
+          "y": 50,
+          "onPitch": true,
+          "overall": 65,
+          "ratings": {
+            "pace": 50,
+            "stamina": 60,
+            "composure": 86,
+            "positioning": 90,
+            "strength": 76,
+            "aerial": 80,
+            "passing": 76,
+            "dribbling": 48,
+            "finishing": 20
+          }
+        },
+        {
+          "id": "blue-2",
+          "number": 3,
+          "name": "Balde",
+          "role": "LB",
+          "position": "LB",
+          "face": null,
+          "x": 84,
+          "y": 88,
+          "onPitch": true,
+          "overall": 69,
+          "ratings": {
+            "pace": 94,
+            "stamina": 84,
+            "composure": 68,
+            "positioning": 66,
+            "strength": 66,
+            "aerial": 50,
+            "passing": 70,
+            "dribbling": 80,
+            "finishing": 45
+          }
+        },
+        {
+          "id": "blue-3",
+          "number": 5,
+          "name": "Cubarsí",
+          "role": "CB",
+          "position": "CB",
+          "face": null,
+          "x": 84,
+          "y": 63,
+          "onPitch": true,
+          "overall": 75,
+          "ratings": {
+            "pace": 78,
+            "stamina": 78,
+            "composure": 92,
+            "positioning": 92,
+            "strength": 70,
+            "aerial": 74,
+            "passing": 90,
+            "dribbling": 74,
+            "finishing": 25
+          }
+        },
+        {
+          "id": "blue-4",
+          "number": 24,
+          "name": "Eric García",
+          "role": "CB",
+          "position": "CB",
+          "face": null,
+          "x": 84,
+          "y": 37,
+          "onPitch": true,
+          "overall": 73,
+          "ratings": {
+            "pace": 70,
+            "stamina": 80,
+            "composure": 84,
+            "positioning": 78,
+            "strength": 70,
+            "aerial": 70,
+            "passing": 86,
+            "dribbling": 72,
+            "finishing": 45
+          }
+        },
+        {
+          "id": "blue-5",
+          "number": 23,
+          "name": "Koundé",
+          "role": "RB",
+          "position": "RB",
+          "face": null,
+          "x": 84,
+          "y": 12,
+          "onPitch": true,
+          "overall": 77,
+          "ratings": {
+            "pace": 86,
+            "stamina": 84,
+            "composure": 84,
+            "positioning": 84,
+            "strength": 78,
+            "aerial": 72,
+            "passing": 78,
+            "dribbling": 74,
+            "finishing": 55
+          }
+        },
+        {
+          "id": "blue-6",
+          "number": 8,
+          "name": "Pedri",
+          "role": "CM",
+          "position": "CM",
+          "face": null,
+          "x": 67,
+          "y": 68,
+          "onPitch": true,
+          "overall": 77,
+          "ratings": {
+            "pace": 70,
+            "stamina": 86,
+            "composure": 96,
+            "positioning": 92,
+            "strength": 62,
+            "aerial": 45,
+            "passing": 95,
+            "dribbling": 88,
+            "finishing": 60
+          }
+        },
+        {
+          "id": "blue-7",
+          "number": 21,
+          "name": "De Jong",
+          "role": "DM",
+          "position": "DM",
+          "face": null,
+          "x": 73,
+          "y": 50,
+          "onPitch": true,
+          "overall": 78,
+          "ratings": {
+            "pace": 72,
+            "stamina": 82,
+            "composure": 94,
+            "positioning": 84,
+            "strength": 76,
+            "aerial": 60,
+            "passing": 90,
+            "dribbling": 90,
+            "finishing": 50
+          }
+        },
+        {
+          "id": "blue-8",
+          "number": 20,
+          "name": "Dani Olmo",
+          "role": "CM",
+          "position": "CM",
+          "face": null,
+          "x": 67,
+          "y": 32,
+          "onPitch": true,
+          "overall": 77,
+          "ratings": {
+            "pace": 74,
+            "stamina": 80,
+            "composure": 84,
+            "positioning": 86,
+            "strength": 66,
+            "aerial": 60,
+            "passing": 84,
+            "dribbling": 82,
+            "finishing": 78
+          }
+        },
+        {
+          "id": "blue-9",
+          "number": 7,
+          "name": "Gordon",
+          "role": "LW",
+          "position": "LW",
+          "face": null,
+          "x": 56,
+          "y": 86,
+          "onPitch": true,
+          "overall": 76,
+          "ratings": {
+            "pace": 92,
+            "stamina": 86,
+            "composure": 74,
+            "positioning": 74,
+            "strength": 70,
+            "aerial": 52,
+            "passing": 74,
+            "dribbling": 84,
+            "finishing": 76
+          }
+        },
+        {
+          "id": "blue-10",
+          "number": 11,
+          "name": "Raphinha",
+          "role": "ST",
+          "position": "ST",
+          "face": null,
+          "x": 53,
+          "y": 50,
+          "onPitch": true,
+          "overall": 81,
+          "ratings": {
+            "pace": 84,
+            "stamina": 90,
+            "composure": 82,
+            "positioning": 84,
+            "strength": 72,
+            "aerial": 62,
+            "passing": 84,
+            "dribbling": 84,
+            "finishing": 86
+          }
+        },
+        {
+          "id": "blue-11",
+          "number": 10,
+          "name": "Lamine Yamal",
+          "role": "RW",
+          "position": "RW",
+          "face": null,
+          "x": 56,
+          "y": 14,
+          "onPitch": true,
+          "overall": 79,
+          "ratings": {
+            "pace": 88,
+            "stamina": 78,
+            "composure": 90,
+            "positioning": 82,
+            "strength": 62,
+            "aerial": 45,
+            "passing": 88,
+            "dribbling": 96,
+            "finishing": 84
+          }
+        }
+      ]
+    }
+  },
+  "bench": {
+    "red": [
+      {
+        "n": 13,
+        "pos": "GK",
+        "name": "Lunin",
+        "face": "",
+        "ratings": {
+          "pace": 45,
+          "stamina": 58,
+          "composure": 74,
+          "positioning": 76,
+          "strength": 74,
+          "aerial": 76,
+          "passing": 66,
+          "dribbling": 42,
+          "finishing": 15
+        }
+      },
+      {
+        "n": 22,
+        "pos": "CB",
+        "name": "Rüdiger",
+        "face": "",
+        "ratings": {
+          "pace": 78,
+          "stamina": 76,
+          "composure": 74,
+          "positioning": 78,
+          "strength": 92,
+          "aerial": 88,
+          "passing": 72,
+          "dribbling": 58,
+          "finishing": 35
+        }
+      },
+      {
+        "n": 3,
+        "pos": "CB",
+        "name": "Militão",
+        "face": "",
+        "ratings": {
+          "pace": 88,
+          "stamina": 76,
+          "composure": 72,
+          "positioning": 76,
+          "strength": 88,
+          "aerial": 84,
+          "passing": 70,
+          "dribbling": 60,
+          "finishing": 30
+        }
+      },
+      {
+        "n": 2,
+        "pos": "CB",
+        "name": "Asencio",
+        "face": "",
+        "ratings": {
+          "pace": 76,
+          "stamina": 78,
+          "composure": 64,
+          "positioning": 68,
+          "strength": 80,
+          "aerial": 80,
+          "passing": 64,
+          "dribbling": 55,
+          "finishing": 25
+        }
+      },
+      {
+        "n": 12,
+        "pos": "RB",
+        "name": "Trent",
+        "face": "",
+        "ratings": {
+          "pace": 72,
+          "stamina": 78,
+          "composure": 84,
+          "positioning": 60,
+          "strength": 66,
+          "aerial": 55,
+          "passing": 96,
+          "dribbling": 76,
+          "finishing": 62
+        }
+      },
+      {
+        "n": 18,
+        "pos": "LB",
+        "name": "Carreras",
+        "face": "",
+        "ratings": {
+          "pace": 85,
+          "stamina": 86,
+          "composure": 74,
+          "positioning": 74,
+          "strength": 70,
+          "aerial": 60,
+          "passing": 78,
+          "dribbling": 76,
+          "finishing": 45
+        }
+      },
+      {
+        "n": 23,
+        "pos": "LB",
+        "name": "Mendy",
+        "face": "",
+        "ratings": {
+          "pace": 86,
+          "stamina": 76,
+          "composure": 68,
+          "positioning": 72,
+          "strength": 80,
+          "aerial": 64,
+          "passing": 64,
+          "dribbling": 66,
+          "finishing": 30
+        }
+      },
+      {
+        "n": 20,
+        "pos": "CM",
+        "name": "Bernardo Silva",
+        "face": "",
+        "ratings": {
+          "pace": 70,
+          "stamina": 88,
+          "composure": 92,
+          "positioning": 90,
+          "strength": 66,
+          "aerial": 45,
+          "passing": 88,
+          "dribbling": 90,
+          "finishing": 72
+        }
+      },
+      {
+        "n": 6,
+        "pos": "CM",
+        "name": "Camavinga",
+        "face": "",
+        "ratings": {
+          "pace": 84,
+          "stamina": 86,
+          "composure": 76,
+          "positioning": 74,
+          "strength": 84,
+          "aerial": 66,
+          "passing": 74,
+          "dribbling": 86,
+          "finishing": 45
+        }
+      },
+      {
+        "n": 15,
+        "pos": "AM",
+        "name": "Arda Güler",
+        "face": "",
+        "ratings": {
+          "pace": 66,
+          "stamina": 74,
+          "composure": 86,
+          "positioning": 80,
+          "strength": 58,
+          "aerial": 45,
+          "passing": 90,
+          "dribbling": 84,
+          "finishing": 76
+        }
+      },
+      {
+        "n": 27,
+        "pos": "CM",
+        "name": "Thiago Pitarch",
+        "face": "",
+        "ratings": {
+          "pace": 70,
+          "stamina": 76,
+          "composure": 74,
+          "positioning": 72,
+          "strength": 62,
+          "aerial": 50,
+          "passing": 78,
+          "dribbling": 74,
+          "finishing": 50
+        }
+      },
+      {
+        "n": 25,
+        "pos": "RW",
+        "name": "Yan Diomande",
+        "face": "",
+        "ratings": {
+          "pace": 94,
+          "stamina": 80,
+          "composure": 66,
+          "positioning": 68,
+          "strength": 68,
+          "aerial": 50,
+          "passing": 68,
+          "dribbling": 90,
+          "finishing": 72
+        }
+      },
+      {
+        "n": 21,
+        "pos": "RW",
+        "name": "Brahim",
+        "face": "",
+        "ratings": {
+          "pace": 84,
+          "stamina": 78,
+          "composure": 80,
+          "positioning": 76,
+          "strength": 58,
+          "aerial": 42,
+          "passing": 80,
+          "dribbling": 90,
+          "finishing": 72
+        }
+      },
+      {
+        "n": 9,
+        "pos": "ST",
+        "name": "Endrick",
+        "face": "",
+        "ratings": {
+          "pace": 88,
+          "stamina": 74,
+          "composure": 68,
+          "positioning": 74,
+          "strength": 78,
+          "aerial": 60,
+          "passing": 60,
+          "dribbling": 80,
+          "finishing": 78
+        }
+      },
+      {
+        "n": 19,
+        "pos": "ST",
+        "name": "Carlos Espí",
+        "face": "",
+        "ratings": {
+          "pace": 76,
+          "stamina": 76,
+          "composure": 66,
+          "positioning": 72,
+          "strength": 80,
+          "aerial": 76,
+          "passing": 60,
+          "dribbling": 66,
+          "finishing": 74
+        }
+      }
+    ],
+    "blue": [
+      {
+        "n": 25,
+        "pos": "GK",
+        "name": "Szczęsny",
+        "face": "",
+        "ratings": {
+          "pace": 42,
+          "stamina": 56,
+          "composure": 80,
+          "positioning": 80,
+          "strength": 78,
+          "aerial": 78,
+          "passing": 68,
+          "dribbling": 40,
+          "finishing": 15
+        }
+      },
+      {
+        "n": 15,
+        "pos": "CB",
+        "name": "Christensen",
+        "face": "",
+        "ratings": {
+          "pace": 72,
+          "stamina": 72,
+          "composure": 86,
+          "positioning": 82,
+          "strength": 76,
+          "aerial": 78,
+          "passing": 84,
+          "dribbling": 66,
+          "finishing": 35
+        }
+      },
+      {
+        "n": 18,
+        "pos": "LB",
+        "name": "Gerard Martín",
+        "face": "",
+        "ratings": {
+          "pace": 70,
+          "stamina": 80,
+          "composure": 76,
+          "positioning": 74,
+          "strength": 74,
+          "aerial": 66,
+          "passing": 80,
+          "dribbling": 66,
+          "finishing": 40
+        }
+      },
+      {
+        "n": 39,
+        "pos": "RB",
+        "name": "Héctor Fort",
+        "face": "",
+        "ratings": {
+          "pace": 80,
+          "stamina": 80,
+          "composure": 70,
+          "positioning": 70,
+          "strength": 64,
+          "aerial": 58,
+          "passing": 72,
+          "dribbling": 70,
+          "finishing": 40
+        }
+      },
+      {
+        "n": 17,
+        "pos": "DM",
+        "name": "Casadó",
+        "face": "",
+        "ratings": {
+          "pace": 70,
+          "stamina": 84,
+          "composure": 82,
+          "positioning": 86,
+          "strength": 72,
+          "aerial": 66,
+          "passing": 82,
+          "dribbling": 70,
+          "finishing": 35
+        }
+      },
+      {
+        "n": 22,
+        "pos": "DM",
+        "name": "Marc Bernal",
+        "face": "",
+        "ratings": {
+          "pace": 66,
+          "stamina": 80,
+          "composure": 84,
+          "positioning": 84,
+          "strength": 84,
+          "aerial": 84,
+          "passing": 84,
+          "dribbling": 70,
+          "finishing": 35
+        }
+      },
+      {
+        "n": 6,
+        "pos": "CM",
+        "name": "Gavi",
+        "face": "",
+        "ratings": {
+          "pace": 76,
+          "stamina": 90,
+          "composure": 74,
+          "positioning": 74,
+          "strength": 78,
+          "aerial": 55,
+          "passing": 76,
+          "dribbling": 80,
+          "finishing": 55
+        }
+      },
+      {
+        "n": 16,
+        "pos": "AM",
+        "name": "Fermín López",
+        "face": "",
+        "ratings": {
+          "pace": 78,
+          "stamina": 86,
+          "composure": 80,
+          "positioning": 82,
+          "strength": 68,
+          "aerial": 58,
+          "passing": 78,
+          "dribbling": 82,
+          "finishing": 80
+        }
+      },
+      {
+        "n": 14,
+        "pos": "LW",
+        "name": "Adeyemi",
+        "face": "",
+        "ratings": {
+          "pace": 94,
+          "stamina": 80,
+          "composure": 66,
+          "positioning": 66,
+          "strength": 66,
+          "aerial": 48,
+          "passing": 66,
+          "dribbling": 84,
+          "finishing": 70
+        }
+      },
+      {
+        "n": 19,
+        "pos": "RW",
+        "name": "Bardghji",
+        "face": "",
+        "ratings": {
+          "pace": 84,
+          "stamina": 74,
+          "composure": 76,
+          "positioning": 72,
+          "strength": 60,
+          "aerial": 45,
+          "passing": 74,
+          "dribbling": 84,
+          "finishing": 72
+        }
+      }
+    ]
+  },
+  "ball": {
+    "x": 50,
+    "y": 50,
+    "owner": "blue-6",
+    "inPossession": true
+  },
+  "drawings": [
+    {
+      "id": "s1",
+      "type": "pass",
+      "sequence": 1,
+      "ink": "#16181b",
+      "points": [
+        {
+          "x": 65.4,
+          "y": 89.7
+        },
+        {
+          "x": 78.6,
+          "y": 69.3
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "type": "run",
+      "sequence": 2,
+      "ink": "#16181b",
+      "points": [
+        {
+          "x": 79.7,
+          "y": 67.6
+        },
+        {
+          "x": 94,
+          "y": 60.8
+        }
+      ]
+    }
+  ],
+  "customFormations": {},
+  "customScenarios": {}
+}

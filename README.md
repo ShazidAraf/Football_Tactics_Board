@@ -93,6 +93,17 @@ Scenarios that involve the ball hand it to the right player — build-up gives i
 
 **Add scenario** saves whatever is currently on the board under your own name, capturing either team's shape. Your scenarios sit in the same list and travel with your exports.
 
+### AI rendering
+
+Ask the analyst and the answer can arrive as more than text:
+
+- **Drawings on the board** — coaching plans render on a gold-glow *suggestion overlay*: marks, runs, passes with numbered sequence badges and short notes. Your own drawings are never touched; a new question replaces the old suggestion; **Keep** converts it into ordinary editable shapes; ✕ dismisses it.
+- **Zone highlights** — "Where is the space?" shades the open (or least crowded) region, possibly non-rectangular, straight from the occupancy grid. This one is fully deterministic — it works with no model connected.
+- **Heatmaps** — a second pitch appears below the board. *Pitch control* colours every area by the probability red or blue controls it; *race maps* show where a named player reaches the ball before the nearest opponent. Both are computed locally from positions and pace ratings — the model only chooses the lens — and both carry an honest caption: illustrative physics, not tracking data. The ↻ button recomputes after you move players.
+- **Charts** — radar comparisons of up to three players across all nine attributes, or bar charts of team averages by unit, drawn from the board's actual ratings.
+
+Heatmaps, space highlights and radars also render **offline**: without an API key the panel answers from the board and still draws what it can.
+
 ---
 
 ## Keyboard

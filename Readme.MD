@@ -4,7 +4,7 @@ An interactive coach's whiteboard that runs entirely in the browser. Drag player
 
 One HTML file. No build step, no server, no dependencies, no tracking. Open it and it works, online or off.
 
-**[Live demo](https://shazidaraf.github.io/Football_Tactics_Board/)
+**[Live demo](https://shazidaraf.github.io/Football_Tactics_Board/)**
 
 ---
 

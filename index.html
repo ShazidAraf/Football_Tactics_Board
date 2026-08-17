@@ -95,6 +95,32 @@
     box-shadow:0 3px 0 #7c6000, 0 8px 14px rgba(0,0,0,.35);
   }
   .btn.export:hover{filter:brightness(1.05)}
+
+  /* the scenarios button is the fastest way into something interesting, so it
+     gets its own accent and a few pulses that stop once it has been opened */
+  .btn.feature{
+    position:relative;
+    display:inline-flex; align-items:center; gap:7px;
+    background:linear-gradient(180deg,#2fbf6d,#1f9d55 55%,#177a41);
+    color:#fff; border-color:#0f5c31;
+    box-shadow:0 3px 0 #0d4d29, 0 8px 14px rgba(0,0,0,.35);
+  }
+  .btn.feature:hover{filter:brightness(1.08)}
+  .btn.feature:active{transform:translateY(2px); box-shadow:0 1px 0 #0d4d29}
+  .btn.feature::after{
+    content:""; position:absolute; inset:-3px; border-radius:13px;
+    border:2px solid #4fe08c; opacity:0; pointer-events:none;
+    animation:beckon 2.4s ease-out 6;
+  }
+  body.scen-seen .btn.feature::after{animation:none}
+  @keyframes beckon{
+    0%   {opacity:.9; transform:scale(1)}
+    70%  {opacity:0;  transform:scale(1.32)}
+    100% {opacity:0;  transform:scale(1.32)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .btn.feature::after{animation:none}
+  }
   .btn.export:active{transform:translateY(2px); box-shadow:0 1px 0 #7c6000}
 
   /* save-shape chip: appears once a team's positions go Custom */
@@ -489,7 +515,10 @@
         <label class="switch"><input type="checkbox" id="tgFace"><span class="box" aria-hidden="true"></span><span>Face</span></label>
       </div>
     </div>
-    <button class="btn ghost" id="scenBtn" type="button">Scenarios</button>
+    <button class="btn feature" id="scenBtn" type="button" title="Load a match situation — low block, high press, corners and more">
+      <svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><rect x=".9" y=".9" width="12.2" height="10.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 .9v10.2" stroke="currentColor" stroke-width="1.4"/><circle cx="7" cy="6" r="2.1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+      Scenarios
+    </button>
     <button class="btn ghost" id="importBtn" type="button">Import</button>
     <button class="btn ghost" id="resetBtn" type="button">Reset</button>
     <button class="btn export" id="exportBtn" type="button">
@@ -1922,7 +1951,10 @@ function openScen(){
 }
 function closeScen(){ scenModal.hidden = true; }
 
-$("scenBtn").addEventListener("click", openScen);
+$("scenBtn").addEventListener("click", () => {
+  document.body.classList.add("scen-seen");                // it has done its job
+  openScen();
+});
 $("scenClose").addEventListener("click", closeScen);
 scenModal.addEventListener("pointerdown", e => { if (e.target === scenModal) closeScen(); });
 

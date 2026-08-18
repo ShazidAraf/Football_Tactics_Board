@@ -564,6 +564,19 @@
     font:700 13px/1 var(--body); padding:4px 7px; border-radius:99px;
   }
   .ai-x:hover{color:#fff; background:#ffffff14}
+  .ai-phase{display:flex; align-items:center; gap:4px; flex:none}
+  .ai-phase b{font:800 11px/1 var(--body); color:#f2c21f; letter-spacing:.05em; min-width:64px; text-align:center}
+  .ai-step{
+    background:#ffffff10; border:1px solid #ffffff22; color:#eaeef2; cursor:pointer;
+    font:700 11px/1 var(--body); padding:5px 8px; border-radius:99px;
+  }
+  .ai-step:hover:not(:disabled){background:#ffffff22}
+  .ai-step:disabled{opacity:.35; cursor:default}
+  .ai-play{color:#f2c21f; border-color:#f2c21f55}
+  .ai-phase[hidden]{display:none}
+  @keyframes aiPhaseIn{from{opacity:0}to{opacity:1}}
+  .ai-phase-in{animation:aiPhaseIn .45s ease .35s both}
+  .ai-ghost{pointer-events:none}
 
   .panel{
     border-radius:14px; overflow:hidden; border:1px solid #000a;
@@ -762,6 +775,12 @@
       <svg class="draw" id="aidraw" viewBox="0 0 1391 1000" aria-hidden="true" focusable="false"></svg>
       <div class="ai-bar" id="aiBar" hidden>
         <span id="aiBarTxt">Suggestion</span>
+        <span class="ai-phase" id="aiPhase" hidden>
+          <button class="ai-step" id="aiPrev" type="button" aria-label="Previous phase">◀</button>
+          <b id="aiPhaseTxt">Phase 1/1</b>
+          <button class="ai-step" id="aiNext" type="button" aria-label="Next phase">▶</button>
+          <button class="ai-step ai-play" id="aiPlay" type="button" title="Play the move phase by phase">▶</button>
+        </span>
         <button class="ai-keep" id="aiKeep" type="button" title="Convert the suggestion into your own editable drawings">Keep</button>
         <button class="ai-x" id="aiClear" type="button" aria-label="Dismiss suggestion">✕</button>
       </div>
@@ -2202,13 +2221,51 @@ for (const b of document.querySelectorAll("[data-cap]")){
 /* ── render engine: AI overlay, zones, heatmaps, charts ─────
    The analyst draws on its OWN layer. User Undo/Clear never touch it; a new
    question replaces it; Keep converts it into ordinary editable drawings.   */
-const AI = {items:[], budget:0, seq:0, question:""};
-const INKS = {gold:"#d8a90e", red:"#d63a2f", blue:"#2a5bd0", green:"#1f9d55", black:"#16181b"};
+const AI = {items:[], budget:0, seq:0, question:"", phase:1, maxPhase:1, perPhase:{}, repos:[]};
+/* 1 → (a), 2 → (b) … 27 → (aa); the analyst never gets past 8, but be safe */
+const seqLetter = n => {
+  let s = "", v = Math.max(1, Math.floor(n));
+  while (v > 0){ v--; s = String.fromCharCode(97 + (v % 26)) + s; v = Math.floor(v / 26); }
+  return "(" + s + ")";
+};
+
+/* ── phase projection ───────────────────────────────────────
+   Where is everyone at the START of phase q?  Board positions, plus every
+   movement executed in earlier phases, plus any analyst repositions that
+   kick in at q (defenders reacting to what just happened).              */
+const MOVER_TYPES = new Set(["run", "dribble", "hold"]);
+const gkey = (team, name) => (team || "?") + "|" + (name || "?");
+
+function projectPositions(board, phase){
+  const pos = new Map();                                   // key → {x,y,team,name,n}
+  for (const team of ["red", "blue"])
+    for (const p of (board.teams?.[team]?.players || []))
+      pos.set(gkey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n});
+  for (let q = 2; q <= phase; q++){
+    for (const it of AI.items){                            // movements executed in phase q-1
+      if (it.kind !== "shape" || it.phase !== q - 1) continue;
+      if (!MOVER_TYPES.has(it.actType) || !it.moverKey) continue;
+      const g = pos.get(it.moverKey);
+      if (g){ g.x = it.pts[it.pts.length - 1].x; g.y = it.pts[it.pts.length - 1].y; }
+    }
+    for (const r of AI.repos)                              // reactions declared for phase q
+      if (r.phase === q && pos.has(r.key)){
+        const g = pos.get(r.key);
+        g.x = r.to.x; g.y = r.to.y;
+      }
+  }
+  return pos;
+}
+const INKS = {gold:"#d8a90e", red:"#d63a2f", blue:"#2a5bd0", green:"#1f9d55", black:"#16181b", purple:"#7a2fd0"};
 
 function clearAI(question){
   AI.items.length = 0;
   AI.budget = 0;
   AI.seq = 0;
+  AI.phase = 1;
+  AI.maxPhase = 1;
+  AI.perPhase = {};
+  AI.repos.length = 0;
   AI.question = question || "";
   renderAI();
 }
@@ -2278,15 +2335,46 @@ function cellUnionLoops(cells){                            // union outline of 3
   return loops;
 }
 
-function renderAI(){
+function renderAI(fromPositions){
   const svg = $("aidraw"), bar = $("aiBar");
   svg.innerHTML = "";
-  if (!AI.items.length){ bar.hidden = true; return; }
+  if (!AI.items.length){ bar.hidden = true; syncPhaseUI(); return; }
   bar.hidden = false;
   $("aiBarTxt").textContent = "Suggestion — " + (AI.question || "from the analyst").slice(0, 46);
+  syncPhaseUI();
+
+  const board = boardJSON();
+  const nowPos = projectPositions(board, AI.phase);
+
+  /* ghost magnets: anyone the move has displaced from their live board spot */
+  const ghostG = el("g", {class:"ai-ghosts"});
+  const ghostEls = new Map();
+  for (const [key, g] of nowPos){
+    const live = board.teams?.[g.team]?.players?.find(p => (p.name || p.role) === g.name);
+    if (!live || (Math.abs(live.x - g.x) < 1 && Math.abs(live.y - g.y) < 1)) continue;
+    const v = toView(g);
+    const grp = el("g", {class:"ai-ghost", transform:`translate(${v.x} ${v.y})`});
+    grp.appendChild(el("circle", {r:26, fill:g.team === "red" ? "#d63a2f" : "#2a5bd0",
+                                  "fill-opacity":.5, stroke:"#fff", "stroke-width":3, "stroke-dasharray":"7 6"}));
+    const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
+                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central", "fill-opacity":.95});
+    t.textContent = g.n != null ? g.n : (g.name || "").slice(0, 2);
+    grp.appendChild(t);
+    const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
+                            "font-weight":700, "text-anchor":"middle", "fill-opacity":.85,
+                            stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
+    lbl.textContent = (g.name || "").split(" ").pop();
+    grp.appendChild(lbl);
+    ghostG.appendChild(grp);
+    ghostEls.set(key, {el:grp, to:v});
+  }
+  svg.appendChild(ghostG);
 
   for (const it of AI.items){
-    const g = el("g", {});
+    const it_phase = it.phase || 1;
+    if (it_phase > AI.phase) continue;                     // future phases stay hidden
+    const past = it_phase < AI.phase;                      // earlier phases linger faintly
+    const g = el("g", past ? {opacity:.14} : {class:"ai-phase-in"});
     if (it.kind === "zone"){
       const d = it.loops.map(loop =>
         "M" + loop.map(p => { const v = toView(p); return v.x.toFixed(1) + " " + v.y.toFixed(1); }).join("L") + "Z").join(" ");
@@ -2303,7 +2391,11 @@ function renderAI(){
         g.appendChild(t);
       }
     } else {
-      const v = it.pts.map(toView);
+      /* arrows in phase q start from where their player IS in phase q */
+      const startPos = it.moverKey && nowPos.get(it.moverKey) && !past
+        ? [{x:nowPos.get(it.moverKey).x, y:nowPos.get(it.moverKey).y}, ...it.pts.slice(1)]
+        : it.pts;
+      const v = startPos.map(toView);
       const type = it.type;
       const d = type === "lob" ? lobArc(v).d : type === "dribble" ? wavyD(v) : smoothD(v);
       g.appendChild(el("path", {d, stroke:"#f2c21f", "stroke-width":12, "stroke-opacity":.3, fill:"none", "stroke-linecap":"round"}));
@@ -2320,10 +2412,10 @@ function renderAI(){
         g.appendChild(arrowHead(type === "lob" ? [lobArc(v).ctrl, lobArc(v).b] : v, type === "shot" ? 28 : 21, it.ink));
       if (type === "hold") g.appendChild(endBar(v, 15, it.ink, 5.5));
       if (it.seq){
-        g.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:14, fill:"#f2c21f", stroke:"#16181b", "stroke-width":2.5}));
+        g.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:18, fill:"#f2c21f", stroke:"#16181b", "stroke-width":2.5}));
         const t = el("text", {x:v[0].x, y:v[0].y, fill:"#16181b", "font-family":"system-ui,sans-serif",
-                              "font-size":16, "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
-        t.textContent = it.seq;
+                              "font-size":20, "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+        t.textContent = seqLetter(it.seq);
         g.appendChild(t);
       }
       if (it.note){
@@ -2338,7 +2430,73 @@ function renderAI(){
     }
     svg.appendChild(g);
   }
+
+  /* animated transition: ghosts glide from where they were to where they are */
+  if (fromPositions && ghostEls.size){
+    const t0 = performance.now(), DUR = 850;
+    const ease = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
+    const tracks = [];
+    for (const [key, {el:grp, to}] of ghostEls){
+      const was = fromPositions.get(key);
+      if (!was) continue;
+      const from = toView(was);
+      if (Math.hypot(from.x - to.x, from.y - to.y) < 2) continue;
+      tracks.push({grp, from, to});
+    }
+    if (tracks.length){
+      const step = now => {
+        const k = ease(Math.min(1, (now - t0) / DUR));
+        for (const tr of tracks)
+          tr.grp.setAttribute("transform",
+            `translate(${tr.from.x + (tr.to.x - tr.from.x)*k} ${tr.from.y + (tr.to.y - tr.from.y)*k})`);
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  }
 }
+
+/* ── phase stepper ──────────────────────────────────────── */
+function setPhase(q, animate = true){
+  q = Math.max(1, Math.min(AI.maxPhase, q));
+  if (q === AI.phase){ renderAI(); return; }
+  const from = animate ? projectPositions(boardJSON(), AI.phase) : null;
+  AI.phase = q;
+  renderAI(from);
+}
+
+function syncPhaseUI(){
+  const box = $("aiPhase");
+  if (!box) return;
+  const multi = AI.items.length && AI.maxPhase > 1;
+  box.hidden = !multi;
+  if (multi){
+    $("aiPhaseTxt").textContent = "Phase " + AI.phase + "/" + AI.maxPhase;
+    $("aiPrev").disabled = AI.phase <= 1;
+    $("aiNext").disabled = AI.phase >= AI.maxPhase;
+  }
+}
+
+let playTimer = null;
+function playPhases(){
+  if (playTimer){ clearTimeout(playTimer); playTimer = null; $("aiPlay").textContent = "▶"; return; }
+  $("aiPlay").textContent = "⏸";
+  const tick = () => {
+    if (AI.phase < AI.maxPhase){
+      setPhase(AI.phase + 1);
+      playTimer = setTimeout(tick, 1600);
+    } else {
+      playTimer = null;
+      $("aiPlay").textContent = "▶";
+    }
+  };
+  if (AI.phase >= AI.maxPhase) setPhase(1, false);
+  playTimer = setTimeout(tick, 700);
+}
+
+$("aiPrev").addEventListener("click", () => setPhase(AI.phase - 1));
+$("aiNext").addEventListener("click", () => setPhase(AI.phase + 1));
+$("aiPlay").addEventListener("click", playPhases);
 
 $("aiKeep").addEventListener("click", () => {
   let kept = 0;
@@ -3505,41 +3663,71 @@ const AGENT_TOOLS = [
    }},
 
   {name:"draw_actions",
-   description:"Draw coaching notation on the board's suggestion overlay. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Number a sequence with seq. Max 8 actions per answer — fewer, clearer arrows teach better.",
+   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. Phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear as ghosts at their new spots, and the board animates between phases. Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, 3 phases — fewer, clearer arrows teach better.",
    input_schema:{type:"object", properties:{
      actions:{type:"array", items:{type:"object", properties:{
        type:{type:"string", enum:["run","pass","lob","dribble","shot","hold","mark"]},
        from:{description:"Player name or {x,y}"},
        to:{description:"Player name or {x,y}"},
+       phase:{type:"integer", description:"Which phase of the move this belongs to (1, 2, 3). Default 1."},
        seq:{type:"integer", description:"Order in the move"},
        note:{type:"string", description:"Very short label, e.g. 'tight, ball side'"}
-     }, required:["type","from","to"]}}}, required:["actions"]},
+     }, required:["type","from","to"]}},
+     repositions:{type:"array", description:"Players who REACT between phases: at the start of `phase`, place `player` at `to`. Use for defenders shifting, a keeper coming out, the block sliding over.",
+       items:{type:"object", properties:{
+         player:{type:"string", description:"Name, surname, or '#'+shirt number"},
+         to:{type:"object", properties:{x:{type:"number"}, y:{type:"number"}}, required:["x","y"]},
+         phase:{type:"integer", description:"Phase at whose start this position applies (2 or 3)"}
+       }, required:["player","to","phase"]}}}, required:["actions"]},
    run:(a, board)=>{
      const list = Array.isArray(a.actions) ? a.actions : [];
      if (!list.length) return "draw_actions needs actions:[{type,from,to}, ...].";
-     if (AI.budget + list.length > 8)
-       return "Render budget is 8 actions per answer (" + AI.budget + " used) — send fewer, clearer actions.";
-     const done = [];
+     const clampPh = v => Math.max(1, Math.min(3, Math.floor(+v) || 1));
+     const incoming = {};
      for (const act of list){
        if (!["run","pass","lob","dribble","shot","hold","mark"].includes(act.type))
          return 'Unknown action type "' + act.type + '" — use run, pass, lob, dribble, shot, hold or mark.';
+       const ph = clampPh(act.phase);
+       incoming[ph] = (incoming[ph] || 0) + 1;
+       if ((AI.perPhase[ph] || 0) + incoming[ph] > 8)
+         return "Render budget is 8 actions per phase (phase " + ph + " is full) — send fewer, clearer actions.";
+     }
+     const done = [];
+     for (const act of list){
        const A = resolveRef(act.from, board), B = resolveRef(act.to, board);
        if (!A || !B)
          return "Could not resolve " + JSON.stringify(!A ? act.from : act.to) +
                 " — use an exact player name from the board, or {x,y} with 0-100.";
        if (Math.hypot(A.x - B.x, A.y - B.y) < 3)
          return "from and to are on top of each other for that " + act.type + ".";
-       const ink = INKS[act.ink] || (A.team === "red" ? INKS.red : A.team === "blue" ? INKS.blue : INKS.black);
+       const ink = INKS.purple;                            // analyst tactics always render in purple
+       const phase = clampPh(act.phase);
        const seq = act.type === "mark" ? null : (Number.isFinite(+act.seq) ? +act.seq : ++AI.seq);
-       AI.items.push({kind:"shape", type:act.type === "mark" ? "link" : act.type,
-                      pts:[{x:A.x, y:A.y}, {x:B.x, y:B.y}], seq,
+       AI.items.push({kind:"shape", type:act.type === "mark" ? "link" : act.type, actType:act.type,
+                      pts:[{x:A.x, y:A.y}, {x:B.x, y:B.y}], seq, phase,
+                      moverKey:A.name ? gkey(A.team, A.name) : null,
                       note:String(act.note || "").slice(0, 26), ink});
+       AI.perPhase[phase] = (AI.perPhase[phase] || 0) + 1;
        AI.budget++;
+       AI.maxPhase = Math.max(AI.maxPhase, phase);
        const fmt = P => P.name || ("x" + Math.round(P.x) + ",y" + Math.round(P.y));
-       done.push((seq ? seq + ". " : "") + act.type + " " + fmt(A) + " → " + fmt(B) + (act.note ? " (" + act.note + ")" : ""));
+       done.push((seq ? seqLetter(seq) + " " : "") + "[ph" + phase + "] " + act.type + " " + fmt(A) + " → " + fmt(B) + (act.note ? " (" + act.note + ")" : ""));
      }
+     for (const r of (Array.isArray(a.repositions) ? a.repositions : [])){
+       const p = Sampler.find(board, r.player);
+       if (!p) return 'reposition: no player called "' + r.player + '" on the board.';
+       if (!r.to || !Number.isFinite(+r.to.x) || !Number.isFinite(+r.to.y))
+         return "reposition for " + r.player + " needs to:{x,y} with 0-100.";
+       const phase = Math.max(2, Math.min(3, Math.floor(+r.phase) || 2));
+       AI.repos.push({key:gkey(p.team, p.name || p.role), to:{x:+r.to.x, y:+r.to.y}, phase});
+       AI.maxPhase = Math.max(AI.maxPhase, phase);
+       done.push("[ph" + phase + "] " + (p.name || p.role) + " repositions to x" + Math.round(r.to.x) + ",y" + Math.round(r.to.y));
+     }
+     AI.phase = 1;
      renderAI();
-     return "Drawn on the gold suggestion overlay: " + done.join("; ") + ". Reference these in your answer, briefly.";
+     return "Drawn in purple across " + AI.maxPhase + " phase(s), steps labelled with letters: " + done.join("; ") +
+            (AI.maxPhase > 1 ? ". The user steps or plays through phases with an animated transition — describe the move phase by phase, referencing the letter labels briefly." :
+                               ". Reference the letter labels in your answer, briefly.");
    }},
 
   {name:"highlight_zone",
@@ -3599,7 +3787,7 @@ const AGENT_SYSTEM = SYSTEM + `
 
 You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input.
 
-You can also RENDER. draw_actions puts coaching arrows on the board (player names for endpoints, numbered sequence, at most 6 clear actions); highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
+You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 3 PHASES — phase 1 is the first picture, phase 2 shows the next moment with movers ghosted at their new spots and defenders repositioned, and the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). Use phases whenever the tactic has a "then": play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
 
 function rosterManifest(board){
   const line = team => {

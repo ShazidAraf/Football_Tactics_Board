@@ -577,6 +577,40 @@
   @keyframes aiPhaseIn{from{opacity:0}to{opacity:1}}
   .ai-phase-in{animation:aiPhaseIn .45s ease .35s both}
   .ai-ghost{pointer-events:none}
+  .phase-seg{display:flex; align-items:center; gap:4px}
+  .phase-lbl{font:800 10px/1 var(--body); letter-spacing:.1em; color:var(--muted)}
+  .phase-btn{
+    background:#ffffff0c; border:1px solid #ffffff22; color:#eaeef2; cursor:pointer;
+    font:800 11px/1 var(--body); width:26px; height:24px; border-radius:7px;
+  }
+  .phase-btn:hover{background:#ffffff1e}
+  .phase-btn.on{background:#7a2fd0; border-color:#9a55ea; color:#fff}
+  .phase-btn:disabled{opacity:.35; cursor:default}
+  .phase-next{width:auto; padding:0 10px; background:#7a2fd0; border-color:#9a55ea; color:#fff; letter-spacing:.05em}
+  .phase-next:hover{background:#8b43de}
+  .phase-play{width:auto; padding:0 8px; color:#c9a4f5}
+  .phase-lbl{min-width:58px; text-align:center}
+  .ink-wrap{position:relative; display:inline-flex}
+  .ink-btn{
+    display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+    background:#ffffff0c; border:1px solid #ffffff22; border-radius:8px; padding:4px 7px;
+  }
+  .ink-btn:hover{background:#ffffff1e}
+  .ink-btn i{width:16px; height:16px; border-radius:5px; border:1.5px solid #ffffff55; display:block}
+  .ink-caret{color:#c8cdd3; font-size:10px}
+  .ink-menu{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:95;
+    display:grid; grid-template-columns:repeat(4, 26px); gap:6px; padding:8px;
+    background:#1d2024; border:1px solid #3c4046; border-radius:11px;
+    box-shadow:0 12px 26px rgba(0,0,0,.5);
+  }
+  .ink-menu[hidden]{display:none}
+  .ink-menu button{
+    width:26px; height:26px; border-radius:7px; cursor:pointer;
+    border:2px solid transparent; padding:0;
+  }
+  .ink-menu button.on{border-color:#fff}
+  .ink-menu button:hover{transform:scale(1.12)}
 
   .panel{
     border-radius:14px; overflow:hidden; border:1px solid #000a;
@@ -728,14 +762,23 @@
     </button>
 
     <span class="tool-sep" aria-hidden="true"></span>
-    <button class="swatch on" type="button" data-ink="#16181b" style="background:#16181b" aria-label="Black ink"></button>
-    <button class="swatch" type="button" data-ink="#d63a2f" style="background:#d63a2f" aria-label="Red ink"></button>
-    <button class="swatch" type="button" data-ink="#2a5bd0" style="background:#2a5bd0" aria-label="Blue ink"></button>
-    <button class="swatch" type="button" data-ink="#1f9d55" style="background:#1f9d55" aria-label="Green ink"></button>
+    <span class="ink-wrap">
+      <button class="ink-btn" id="inkBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Ink colour">
+        <i id="inkChip" style="background:#16181b"></i><span class="ink-caret">&#9662;</span>
+      </button>
+      <div class="ink-menu" id="inkMenu" hidden role="menu" aria-label="Ink colours"></div>
+    </span>
 
     <span class="tool-sep" aria-hidden="true"></span>
     <label class="switch" title="Off: lines are straight. On: lines follow your hand."><input type="checkbox" id="tgCurve"><span class="box" aria-hidden="true"></span><span>Curve</span></label>
     <label class="switch"><input type="checkbox" id="tgSeq" checked><span class="box" aria-hidden="true"></span><span>Sequence</span></label>
+    <span class="tool-sep" aria-hidden="true"></span>
+    <span class="phase-seg" role="group" aria-label="Drawing phase" title="Draw the current picture, then press NEXT PHASE — the move executes and you draw what comes next">
+      <button class="phase-btn" type="button" id="phasePrev" disabled title="Back one phase">&#9664;</button>
+      <span class="phase-lbl" id="phaseLbl">PHASE 1</span>
+      <button class="phase-btn phase-next" type="button" id="phaseNext" title="Execute this phase and open the next one">NEXT PHASE &#9654;</button>
+      <button class="phase-btn phase-play" type="button" id="userPlay" title="Play the phases as an animation">&#9654;</button>
+    </span>
     <span class="spacer"></span>
     <button class="tool" type="button" id="undoBtn" title="Undo the last drawing">UNDO</button>
     <button class="tool" type="button" id="clearBtn" title="Remove every drawing">CLEAR</button>
@@ -1670,6 +1713,10 @@ const SHAPES = [];                                         // {id,type,pts:[{x,y
 const ARROWED = new Set(["run","pass","dribble","shot","lob"]);
 const CURVABLE = new Set(["run","pass","dribble","shot","hold","link"]);
 let tool = "none", ink = "#16181b", shapeSeq = 0, drawing = null, curveOn = false;
+let userPhase = 1;                                         // the phase you draw into AND view
+const MAX_USER_PHASE = 9;
+const shPhase = s => Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(+s.phase) || 1));
+const userMaxPhase = () => SHAPES.reduce((m, s) => Math.max(m, shPhase(s)), 1);
 let selIdx = null, editDrag = null;                        // the shape being edited, and the live drag
 /* Curve off → these tools snap start-to-end as a straight line; on → they follow the hand.
    A lob is always arced: the bow IS the notation, so it never straightens. */
@@ -1782,14 +1829,201 @@ function offsetPath(v, off){                               // parallel copy, for
   return out;
 }
 
-function renderShapes(preview){
+/* ── manual phases ──────────────────────────────────────────
+   You draw INTO the selected phase. Earlier phases linger faintly, players
+   who ran/dribbled/held ghost forward, and the play button animates it.  */
+const U_MOVERS = new Set(["run", "dribble", "hold"]);
+const ukey = (team, name) => (team || "?") + "|" + (name || "?");
+
+function nearestProjected(pt, radius){                     // nearest player AS OF the current phase
+  let best = radius, hit = null;
+  try {
+    for (const [key, g] of projectUserPositions(userPhase)){
+      const d = Math.hypot(g.x - pt.x, g.y - pt.y);
+      if (d < best){ best = d; hit = {key, g}; }
+    }
+  } catch (e) {}
+  return hit;
+}
+
+function snapMover(s){                                     // anchor a movement to its nearest player
+  if (!U_MOVERS.has(s.type)) return;
+  const hit = nearestProjected(s.pts[0], 8);
+  s.moverKey = hit ? hit.key : null;
+}
+
+const BALL_ACTIONS = new Set(["pass", "lob", "dribble", "shot"]);
+
+function projectedBallPos(phase){                          // where the ball is entering `phase`
+  if (!BALL.owner) return null;
+  const holder = players.get(BALL.owner);
+  if (!holder) return null;
+  let pos = {x:holder.x, y:holder.y};
+  const moves = SHAPES.filter(sh => BALL_ACTIONS.has(sh.type) && shPhase(sh) < phase)
+                      .sort((a, b) => (shPhase(a) - shPhase(b)) || ((a.n || 99) - (b.n || 99)));
+  for (const m of moves) pos = {...m.pts[m.pts.length - 1]};
+  return pos;
+}
+
+function ballGlyph(v, opacity){                            // a small ghost football
+  const g = el("g", {class:"ai-ghost ghost-ball", transform:`translate(${v.x} ${v.y})`, opacity:opacity || 1});
+  g.appendChild(el("circle", {r:13, fill:"#fbfaf6", stroke:"#16181b", "stroke-width":3}));
+  g.appendChild(el("circle", {r:4.5, fill:"#16181b"}));
+  for (let i = 0; i < 5; i++){
+    const a = -Math.PI/2 + i * 2*Math.PI/5;
+    g.appendChild(el("circle", {cx:8.4*Math.cos(a), cy:8.4*Math.sin(a), r:2.1, fill:"#16181b"}));
+  }
+  return g;
+}
+
+function ballDisplayPos(rawBall, posMap){                  // sit at the receiver's front foot
+  if (!rawBall) return null;
+  let best = null, bestD = SNAP + 1.2;                     // a touch of slack for pass endpoints
+  for (const g of posMap.values()){
+    const d = Math.hypot(g.x - rawBall.x, g.y - rawBall.y);
+    if (d < bestD){ bestD = d; best = g; }
+  }
+  if (!best) return {x:rawBall.x, y:rawBall.y};
+  const dir = best.team === "red" ? 1 : -1;
+  return {x:best.x + dir*2.6, y:best.y + 2.4};
+}
+
+function liveBallDisplay(){
+  const p = BALL.owner ? players.get(BALL.owner) : null;
+  return p ? ballOffset(p) : {x:BALL.x, y:BALL.y};
+}
+
+function projectUserPositions(phase){
+  const pos = new Map();
+  const board = boardJSON();
+  for (const team of ["red", "blue"])
+    for (const p of (board.teams?.[team]?.players || []))
+      pos.set(ukey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n});
+  for (let q = 2; q <= phase; q++)
+    for (const sh of SHAPES){
+      if (shPhase(sh) !== q - 1 || !U_MOVERS.has(sh.type) || !sh.moverKey) continue;
+      const g = pos.get(sh.moverKey);
+      if (g){ const e = sh.pts[sh.pts.length - 1]; g.x = e.x; g.y = e.y; }
+    }
+  return pos;
+}
+
+function userGhosts(svg, ghostFrom){
+  const fromPositions = ghostFrom && ghostFrom.posMap;
+  const board = boardJSON();
+  const nowPos = projectUserPositions(userPhase);
+  const gG = el("g", {class:"ai-ghosts"});
+  const tracks = [];
+  for (const [key, g] of nowPos){
+    const live = board.teams?.[g.team]?.players?.find(p => (p.name || p.role) === g.name);
+    if (!live || (Math.abs(live.x - g.x) < 1 && Math.abs(live.y - g.y) < 1)) continue;
+    const v = toView(g);
+    const grp = el("g", {class:"ai-ghost", transform:`translate(${v.x} ${v.y})`});
+    grp.appendChild(el("circle", {r:27, fill:"#16181b", "fill-opacity":.28, cy:4}));   // soft drop shadow
+    grp.appendChild(el("circle", {r:26, fill:g.team === "red" ? "#d63a2f" : "#2a5bd0",
+                                  stroke:"#fbfaf6", "stroke-width":3}));
+    const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
+                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+    t.textContent = g.n != null ? g.n : (g.name || "").slice(0, 2);
+    grp.appendChild(t);
+    const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
+                            "font-weight":700, "text-anchor":"middle",
+                            stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
+    lbl.textContent = (g.name || "").split(" ").pop();
+    grp.appendChild(lbl);
+    gG.appendChild(grp);
+    if (fromPositions && fromPositions.has(key)){
+      const from = toView(fromPositions.get(key));
+      if (Math.hypot(from.x - v.x, from.y - v.y) >= 2) tracks.push({grp, from, to:v});
+    }
+  }
+  /* the ball travels with the pass chain: ghost it wherever it has moved */
+  const rawBall = projectedBallPos(userPhase);
+  if (rawBall){
+    const disp = ballDisplayPos(rawBall, nowPos);
+    const live = liveBallDisplay();
+    if (Math.hypot(disp.x - live.x, disp.y - live.y) >= 1){
+      const v = toView(disp);
+      const bg = ballGlyph(v);
+      gG.appendChild(bg);
+      if (ghostFrom && ghostFrom.ball){
+        const from = toView(ghostFrom.ball);
+        if (Math.hypot(from.x - v.x, from.y - v.y) >= 2) tracks.push({grp:bg, from, to:v});
+      }
+    }
+  }
+  svg.appendChild(gG);
+  if (tracks.length){
+    const t0 = performance.now(), DUR = 850;
+    const ease = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
+    const step = now => {
+      const k = ease(Math.min(1, (now - t0) / DUR));
+      for (const tr of tracks)
+        tr.grp.setAttribute("transform",
+          `translate(${tr.from.x + (tr.to.x - tr.from.x)*k} ${tr.from.y + (tr.to.y - tr.from.y)*k})`);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
+/* When a phase view has moved someone, their live magnet hides so the board
+   reads as ONE picture — the moved one. Reversible: phase 1 restores all. */
+function syncProjectionVisibility(){
+  const hidden = new Set();
+  let hideBall = false;
+  try {
+    const board = boardJSON();
+    const check = (posMap, rawBall) => {
+      for (const [key, g] of posMap){
+        const live = board.teams?.[g.team]?.players?.find(p => (p.name || p.role) === g.name);
+        if (live && (Math.abs(live.x - g.x) >= 1 || Math.abs(live.y - g.y) >= 1)) hidden.add(key);
+      }
+      if (rawBall){
+        const disp = ballDisplayPos(rawBall, posMap);
+        if (Math.hypot(disp.x - liveBallDisplay().x, disp.y - liveBallDisplay().y) >= 1) hideBall = true;
+      }
+    };
+    if (userPhase > 1 && SHAPES.length)
+      check(projectUserPositions(userPhase), projectedBallPos(userPhase));
+    if (AI.items.length && AI.phase > 1)
+      check(projectPositions(board, AI.phase), aiBallPos(AI.phase));
+    for (const q of players.values())
+      q.el.style.visibility = hidden.has(ukey(q.team, q.name || q.role)) ? "hidden" : "";
+    ballEl.style.visibility = hideBall ? "hidden" : "";
+  } catch (e) {}
+}
+
+function setUserPhase(q, animate = true){
+  q = Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(q) || 1));
+  let from = null;
+  if (animate && q !== userPhase){
+    const posMap = projectUserPositions(userPhase);
+    const raw = projectedBallPos(userPhase);
+    from = {posMap, ball: raw ? ballDisplayPos(raw, posMap) : liveBallDisplay()};
+  }
+  userPhase = q;
+  $("phaseLbl").textContent = "PHASE " + q;
+  $("phasePrev").disabled = q <= 1;
+  $("phaseNext").disabled = q >= MAX_USER_PHASE;
+  if (selIdx !== null){ selIdx = null; }
+  renderShapes(null, from);
+}
+
+function renderShapes(preview, ghostFrom){
   drawSvg.innerHTML = "";
   const all = preview ? SHAPES.concat([preview]) : SHAPES;
 
+  try { if (userMaxPhase() > 1 || userPhase > 1) userGhosts(drawSvg, ghostFrom); } catch (e) {}
+  try { syncProjectionVisibility(); } catch (e) {}
+
   all.forEach(s => {
+    const ph = shPhase(s);
+    if (ph > userPhase) return;                            // future phases stay hidden
+    const faint = ph < userPhase;
     const v = s.pts.map(toView);
     if (v.length < 2) return;
-    const g = el("g", {});
+    const g = el("g", faint ? {opacity:.14} : {});
     const W = 5.5, color = s.ink;
 
     if (s.type === "zone"){
@@ -1952,12 +2186,43 @@ function setTool(t){
 for (const b of document.querySelectorAll(".tool[data-tool]"))
   b.addEventListener("click", () => setTool(b.dataset.tool));
 
-for (const s of document.querySelectorAll(".swatch")){
-  s.addEventListener("click", () => {
-    ink = s.dataset.ink;
-    for (const o of document.querySelectorAll(".swatch")) o.classList.toggle("on", o === s);
-  });
-}
+/* ── ink dropdown ───────────────────────────────────────── */
+const INK_PALETTE = [
+  ["Black","#16181b"], ["White","#f5f5f5"], ["Grey","#6b7280"],  ["Brown","#8a5a2b"],
+  ["Red","#d63a2f"],   ["Orange","#e07b12"],["Yellow","#d8a90e"],["Green","#1f9d55"],
+  ["Teal","#0f9b8e"],  ["Blue","#2a5bd0"],  ["Purple","#7a2fd0"],["Pink","#d6409f"],
+];
+(function buildInkMenu(){
+  const menu = $("inkMenu");
+  for (const [name, hex] of INK_PALETTE){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.style.background = hex;
+    b.title = name;
+    b.setAttribute("aria-label", name + " ink");
+    if (hex === ink) b.classList.add("on");
+    b.addEventListener("click", () => {
+      ink = hex;
+      $("inkChip").style.background = hex;
+      for (const o of menu.children) o.classList.toggle("on", o === b);
+      menu.hidden = true;
+      $("inkBtn").setAttribute("aria-expanded", "false");
+    });
+    menu.appendChild(b);
+  }
+})();
+$("inkBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  const menu = $("inkMenu");
+  menu.hidden = !menu.hidden;
+  $("inkBtn").setAttribute("aria-expanded", String(!menu.hidden));
+});
+document.addEventListener("click", e => {
+  if (!$("inkMenu").hidden && !e.target.closest(".ink-wrap")){
+    $("inkMenu").hidden = true;
+    $("inkBtn").setAttribute("aria-expanded", "false");
+  }
+});
 
 $("tgCurve").addEventListener("change", e => { curveOn = e.target.checked; });
 $("tgSeq").addEventListener("change", e =>
@@ -2008,6 +2273,7 @@ capLayer.addEventListener("pointerdown", e => {
 
     let hit = null, best = 34;
     for (let i = SHAPES.length - 1; i >= 0; i--){
+      if (shPhase(SHAPES[i]) !== userPhase) continue;      // only this phase is editable
       const d = shapeDistance(SHAPES[i], p);
       if (d < best){ best = d; hit = i; break; }
     }
@@ -2025,6 +2291,7 @@ capLayer.addEventListener("pointerdown", e => {
   if (tool === "erase"){
     let hit = null, best = 34;                             // ~2.4% of the pitch width of slack
     for (let i = SHAPES.length - 1; i >= 0; i--){          // topmost first
+      if (shPhase(SHAPES[i]) !== userPhase) continue;      // only this phase is erasable
       const d = shapeDistance(SHAPES[i], p);
       if (d < best){ best = d; hit = i; break; }
     }
@@ -2036,8 +2303,34 @@ capLayer.addEventListener("pointerdown", e => {
     return;
   }
 
+  if (tool === "run" || tool === "hold"){                  // movement belongs to a player
+    const hit = nearestProjected(p, 8);
+    if (!hit){
+      say("A " + tool + " starts from a player — begin the arrow on one of the magnets");
+      return;
+    }
+    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:hit.g.x, y:hit.g.y}, p], n:null, phase:userPhase};
+    capLayer.setPointerCapture(e.pointerId);
+    renderShapes(drawing);
+    return;
+  }
+  if (BALL_ACTIONS.has(tool)){                             // only the man on the ball plays it
+    const bp = projectedBallPos(userPhase);
+    if (!bp){
+      say("Give a player the ball first — drag the ball onto him, then draw the " + tool);
+      return;
+    }
+    if (Math.hypot(p.x - bp.x, p.y - bp.y) > 8){
+      say("Only the player with the ball can " + tool + " — start the arrow from where the ball is");
+      return;
+    }
+    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:bp.x, y:bp.y}, p], n:null, phase:userPhase};
+    capLayer.setPointerCapture(e.pointerId);
+    renderShapes(drawing);
+    return;
+  }
   capLayer.setPointerCapture(e.pointerId);
-  drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[p, p], n:null};
+  drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[p, p], n:null, phase:userPhase};
   renderShapes(drawing);
 });
 
@@ -2075,6 +2368,7 @@ function finishDrawing(){
   const tiny = s.type === "zone" ? Math.abs(s.pts[0].x - s.pts[1].x) < 3 || Math.abs(s.pts[0].y - s.pts[1].y) < 3
                                  : span < 2.5;
   if (tiny){ renderShapes(); return; }                     // ignore accidental taps
+  snapMover(s);
   SHAPES.push(s);
   renumber(); renderShapes();
 }
@@ -2335,10 +2629,23 @@ function cellUnionLoops(cells){                            // union outline of 3
   return loops;
 }
 
-function renderAI(fromPositions){
+function aiBallPos(phase){                                 // ball entering `phase` of the AI move
+  if (!BALL.owner) return null;
+  const holder = players.get(BALL.owner);
+  if (!holder) return null;
+  let pos = {x:holder.x, y:holder.y};
+  const moves = AI.items
+    .filter(it => it.kind === "shape" && BALL_ACTIONS.has(it.actType) && (it.phase || 1) < phase)
+    .sort((a, b) => ((a.phase || 1) - (b.phase || 1)) || ((a.seq || 99) - (b.seq || 99)));
+  for (const m of moves) pos = {...m.pts[m.pts.length - 1]};
+  return pos;
+}
+
+function renderAI(ghostFrom){
+  const fromPositions = ghostFrom && ghostFrom.posMap;
   const svg = $("aidraw"), bar = $("aiBar");
   svg.innerHTML = "";
-  if (!AI.items.length){ bar.hidden = true; syncPhaseUI(); return; }
+  if (!AI.items.length){ bar.hidden = true; syncPhaseUI(); try { syncProjectionVisibility(); } catch (e) {} return; }
   bar.hidden = false;
   $("aiBarTxt").textContent = "Suggestion — " + (AI.question || "from the analyst").slice(0, 46);
   syncPhaseUI();
@@ -2354,19 +2661,31 @@ function renderAI(fromPositions){
     if (!live || (Math.abs(live.x - g.x) < 1 && Math.abs(live.y - g.y) < 1)) continue;
     const v = toView(g);
     const grp = el("g", {class:"ai-ghost", transform:`translate(${v.x} ${v.y})`});
+    grp.appendChild(el("circle", {r:27, fill:"#16181b", "fill-opacity":.28, cy:4}));   // soft drop shadow
     grp.appendChild(el("circle", {r:26, fill:g.team === "red" ? "#d63a2f" : "#2a5bd0",
-                                  "fill-opacity":.5, stroke:"#fff", "stroke-width":3, "stroke-dasharray":"7 6"}));
+                                  stroke:"#fbfaf6", "stroke-width":3}));
     const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
-                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central", "fill-opacity":.95});
+                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
     t.textContent = g.n != null ? g.n : (g.name || "").slice(0, 2);
     grp.appendChild(t);
     const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
-                            "font-weight":700, "text-anchor":"middle", "fill-opacity":.85,
+                            "font-weight":700, "text-anchor":"middle",
                             stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
     lbl.textContent = (g.name || "").split(" ").pop();
     grp.appendChild(lbl);
     ghostG.appendChild(grp);
     ghostEls.set(key, {el:grp, to:v});
+  }
+  const rawBall = aiBallPos(AI.phase);
+  if (rawBall && AI.maxPhase > 1){
+    const disp = ballDisplayPos(rawBall, nowPos);
+    const live = liveBallDisplay();
+    if (Math.hypot(disp.x - live.x, disp.y - live.y) >= 1){
+      const v = toView(disp);
+      const bg = ballGlyph(v);
+      ghostG.appendChild(bg);
+      ghostEls.set("__ball__", {el:bg, to:v});
+    }
   }
   svg.appendChild(ghostG);
 
@@ -2437,7 +2756,7 @@ function renderAI(fromPositions){
     const ease = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
     const tracks = [];
     for (const [key, {el:grp, to}] of ghostEls){
-      const was = fromPositions.get(key);
+      const was = key === "__ball__" ? (ghostFrom && ghostFrom.ball) : fromPositions.get(key);
       if (!was) continue;
       const from = toView(was);
       if (Math.hypot(from.x - to.x, from.y - to.y) < 2) continue;
@@ -2454,13 +2773,19 @@ function renderAI(fromPositions){
       requestAnimationFrame(step);
     }
   }
+  try { syncProjectionVisibility(); } catch (e) {}
 }
 
 /* ── phase stepper ──────────────────────────────────────── */
 function setPhase(q, animate = true){
   q = Math.max(1, Math.min(AI.maxPhase, q));
   if (q === AI.phase){ renderAI(); return; }
-  const from = animate ? projectPositions(boardJSON(), AI.phase) : null;
+  let from = null;
+  if (animate){
+    const posMap = projectPositions(boardJSON(), AI.phase);
+    const raw = aiBallPos(AI.phase);
+    from = {posMap, ball: raw ? ballDisplayPos(raw, posMap) : liveBallDisplay()};
+  }
   AI.phase = q;
   renderAI(from);
 }
@@ -2494,6 +2819,34 @@ function playPhases(){
   playTimer = setTimeout(tick, 700);
 }
 
+$("phaseNext").addEventListener("click", () => {
+  if (userPhase >= MAX_USER_PHASE){ say("That's the last phase"); return; }
+  const moved = SHAPES.some(sh => shPhase(sh) === userPhase && U_MOVERS.has(sh.type) && sh.moverKey)
+             || SHAPES.some(sh => shPhase(sh) === userPhase);
+  setUserPhase(userPhase + 1);                             // executes this phase: ghosts glide forward
+  say(moved ? "Phase executed — draw what happens next" : "New phase — draw what happens next");
+});
+$("phasePrev").addEventListener("click", () => setUserPhase(userPhase - 1));
+
+let userPlayTimer = null;
+$("userPlay").addEventListener("click", () => {
+  if (userPlayTimer){ clearTimeout(userPlayTimer); userPlayTimer = null; $("userPlay").innerHTML = "&#9654;"; return; }
+  const max = userMaxPhase();
+  if (max < 2){ say("Draw a picture, press NEXT PHASE, draw the next one — then play it"); return; }
+  $("userPlay").innerHTML = "&#9208;";
+  const tick = () => {
+    if (userPhase < max){
+      setUserPhase(userPhase + 1);
+      userPlayTimer = setTimeout(tick, 1600);
+    } else {
+      userPlayTimer = null;
+      $("userPlay").innerHTML = "&#9654;";
+    }
+  };
+  if (userPhase >= max) setUserPhase(1, false);
+  userPlayTimer = setTimeout(tick, 700);
+});
+
 $("aiPrev").addEventListener("click", () => setPhase(AI.phase - 1));
 $("aiNext").addEventListener("click", () => setPhase(AI.phase + 1));
 $("aiPlay").addEventListener("click", playPhases);
@@ -2502,7 +2855,8 @@ $("aiKeep").addEventListener("click", () => {
   let kept = 0;
   for (const it of AI.items){
     if (it.kind === "shape"){
-      SHAPES.push({id:"s"+(++shapeSeq), type:it.type, pts:it.pts.map(p => ({...p})), ink:it.ink, n:null});
+      SHAPES.push({id:"s"+(++shapeSeq), type:it.type, pts:it.pts.map(p => ({...p})), ink:it.ink, n:null,
+                   phase:it.phase || 1, moverKey:it.moverKey || null});
     } else {
       const xs = it.loops.flat().map(p => p.x), ys = it.loops.flat().map(p => p.y);
       SHAPES.push({id:"s"+(++shapeSeq), type:"zone", ink:it.ink, n:null,
@@ -3663,7 +4017,7 @@ const AGENT_TOOLS = [
    }},
 
   {name:"draw_actions",
-   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. Phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear as ghosts at their new spots, and the board animates between phases. Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, 3 phases — fewer, clearer arrows teach better.",
+   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. A tactical plan almost always has more than one moment, so DEFAULT to 2-3 phases for any attack/press/build-up plan: phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear moved to their new spots, the ball travels with the pass chain, and the board animates the transition. Only use a single phase for a genuinely one-moment idea (a single switch, one marking assignment). Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. All arrows render purple automatically. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, 3 phases — fewer, clearer arrows teach better.",
    input_schema:{type:"object", properties:{
      actions:{type:"array", items:{type:"object", properties:{
        type:{type:"string", enum:["run","pass","lob","dribble","shot","hold","mark"]},
@@ -3787,7 +4141,7 @@ const AGENT_SYSTEM = SYSTEM + `
 
 You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input.
 
-You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 3 PHASES — phase 1 is the first picture, phase 2 shows the next moment with movers ghosted at their new spots and defenders repositioned, and the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). Use phases whenever the tactic has a "then": play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
+You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 3 PHASES — phase 1 is the first picture, phase 2 shows the next moment with movers relocated to their new spots, the ball carried along the pass chain, and defenders repositioned; the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). When asked HOW to attack, press, build up, or break a block down, DEFAULT to 2-3 phases — real tactics unfold over moments, and a single frozen picture usually undersells the idea. Reserve one phase for genuinely one-moment ideas. Play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
 
 function rosterManifest(board){
   const line = team => {
@@ -4097,7 +4451,7 @@ function boardJSON(){
     bench: {red: BENCH.red, blue: BENCH.blue},
     ball: {x:r1(BALL.x), y:r1(BALL.y), owner:BALL.owner, inPossession:BALL.owner !== null},
     drawings: SHAPES.map(sh => ({
-      id:sh.id, type:sh.type, sequence:sh.n, ink:sh.ink,
+      id:sh.id, type:sh.type, sequence:sh.n, ink:sh.ink, phase:shPhase(sh),
       points: sh.pts.map(pt => ({x:r1(pt.x), y:r1(pt.y)}))
     })),
     customFormations: CUSTOMS,
@@ -4217,6 +4571,7 @@ function importData(d){
       const known = ["run","pass","lob","dribble","shot","hold","link","zone","line"].includes(sh?.type);
       if (!known || pts.length < 2) continue;
       SHAPES.push({id:"s" + (++shapeSeq), type:sh.type, pts,
+                   phase:Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(+sh.phase) || 1)),
                    ink: /^#[0-9a-f]{6}$/i.test(sh.ink || "") ? sh.ink : "#16181b", n:null});
     }
     selIdx = null;

@@ -2315,6 +2315,10 @@ capLayer.addEventListener("pointerdown", e => {
     return;
   }
   if (BALL_ACTIONS.has(tool)){                             // only the man on the ball plays it
+    if (SHAPES.some(sh => shPhase(sh) === userPhase && BALL_ACTIONS.has(sh.type))){
+      say("The ball already moves in this phase — press NEXT PHASE, then draw the " + tool);
+      return;
+    }
     const bp = projectedBallPos(userPhase);
     if (!bp){
       say("Give a player the ball first — drag the ball onto him, then draw the " + tool);
@@ -2858,9 +2862,14 @@ $("aiKeep").addEventListener("click", () => {
       SHAPES.push({id:"s"+(++shapeSeq), type:it.type, pts:it.pts.map(p => ({...p})), ink:it.ink, n:null,
                    phase:it.phase || 1, moverKey:it.moverKey || null});
     } else {
-      const xs = it.loops.flat().map(p => p.x), ys = it.loops.flat().map(p => p.y);
-      SHAPES.push({id:"s"+(++shapeSeq), type:"zone", ink:it.ink, n:null,
-                   pts:[{x:Math.min(...xs), y:Math.min(...ys)}, {x:Math.max(...xs), y:Math.max(...ys)}]});
+      for (const loop of it.loops){                        // one rectangle PER disjoint loop —
+        const xs = loop.map(p => p.x), ys = loop.map(p => p.y);   // never bbox them together,
+        SHAPES.push({id:"s"+(++shapeSeq), type:"zone", ink:it.ink, n:null,   // or two corner strips
+                     pts:[{x:Math.min(...xs), y:Math.min(...ys)},            // merge into one slab
+                          {x:Math.max(...xs), y:Math.max(...ys)}]});
+        kept++;
+      }
+      kept--;                                              // the shared kept++ below counts one
     }
     kept++;
   }
@@ -4017,7 +4026,7 @@ const AGENT_TOOLS = [
    }},
 
   {name:"draw_actions",
-   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. A tactical plan almost always has more than one moment, so DEFAULT to 2-3 phases for any attack/press/build-up plan: phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear moved to their new spots, the ball travels with the pass chain, and the board animates the transition. Only use a single phase for a genuinely one-moment idea (a single switch, one marking assignment). Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. All arrows render purple automatically. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, 3 phases — fewer, clearer arrows teach better.",
+   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. A tactical plan almost always has more than one moment, so DEFAULT to 2-3 phases for any attack/press/build-up plan: phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear moved to their new spots, the ball travels with the pass chain, and the board animates the transition. Only use a single phase for a genuinely one-moment idea (a single switch, one marking assignment). Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. All arrows render purple automatically. HARD RULE: the ball moves ONCE per phase — one pass/lob/dribble/shot per phase, so 'receive then play' is always two phases (pass in phase 1, the receiver's dribble/pass/shot in phase 2). Off-ball runs, holds and marks can share any phase freely. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, up to 6 phases — fewer, clearer arrows teach better.",
    input_schema:{type:"object", properties:{
      actions:{type:"array", items:{type:"object", properties:{
        type:{type:"string", enum:["run","pass","lob","dribble","shot","hold","mark"]},
@@ -4036,8 +4045,11 @@ const AGENT_TOOLS = [
    run:(a, board)=>{
      const list = Array.isArray(a.actions) ? a.actions : [];
      if (!list.length) return "draw_actions needs actions:[{type,from,to}, ...].";
-     const clampPh = v => Math.max(1, Math.min(3, Math.floor(+v) || 1));
-     const incoming = {};
+     const clampPh = v => Math.max(1, Math.min(6, Math.floor(+v) || 1));
+     const incoming = {}, ballIn = {};
+     for (const it of AI.items)
+       if (it.kind === "shape" && BALL_ACTIONS.has(it.actType))
+         ballIn[it.phase || 1] = (ballIn[it.phase || 1] || 0) + 1;
      for (const act of list){
        if (!["run","pass","lob","dribble","shot","hold","mark"].includes(act.type))
          return 'Unknown action type "' + act.type + '" — use run, pass, lob, dribble, shot, hold or mark.';
@@ -4045,6 +4057,11 @@ const AGENT_TOOLS = [
        incoming[ph] = (incoming[ph] || 0) + 1;
        if ((AI.perPhase[ph] || 0) + incoming[ph] > 8)
          return "Render budget is 8 actions per phase (phase " + ph + " is full) — send fewer, clearer actions.";
+       if (BALL_ACTIONS.has(act.type)){
+         ballIn[ph] = (ballIn[ph] || 0) + 1;
+         if (ballIn[ph] > 1)
+           return "Only ONE ball action per phase — the ball moves once per moment, so receive-then-play is two phases. Move that " + act.type + " to phase " + (ph + 1) + " (off-ball runs can share a phase freely).";
+       }
      }
      const done = [];
      for (const act of list){
@@ -4054,6 +4071,24 @@ const AGENT_TOOLS = [
                 " — use an exact player name from the board, or {x,y} with 0-100.";
        if (Math.hypot(A.x - B.x, A.y - B.y) < 3)
          return "from and to are on top of each other for that " + act.type + ".";
+       if (act.type === "shot"){
+         let team = A.team;
+         if (!team){                                       // open-space shot: nearest PROJECTED man owns it
+           let best = 10;
+           const ph = clampPh(act.phase);
+           for (const g of projectPositions(board, ph).values()){
+             const d = Math.hypot(g.x - A.x, g.y - A.y);
+             if (d < best){ best = d; team = g.team; }
+           }
+         }
+         if (team){
+           const goalX = attacksRight(board, team) ? 100 : 0;
+           const own = {x:100 - goalX, y:50}, target = {x:goalX, y:50};
+           if (Math.hypot(B.x - own.x, B.y - own.y) < Math.hypot(B.x - target.x, B.y - target.y))
+             return "That shot goes toward " + team.toUpperCase() + "'s OWN goal — " + team.toUpperCase() +
+                    " attacks toward x=" + goalX + ". Redraw the move in that direction.";
+         }
+       }
        const ink = INKS.purple;                            // analyst tactics always render in purple
        const phase = clampPh(act.phase);
        const seq = act.type === "mark" ? null : (Number.isFinite(+act.seq) ? +act.seq : ++AI.seq);
@@ -4072,7 +4107,7 @@ const AGENT_TOOLS = [
        if (!p) return 'reposition: no player called "' + r.player + '" on the board.';
        if (!r.to || !Number.isFinite(+r.to.x) || !Number.isFinite(+r.to.y))
          return "reposition for " + r.player + " needs to:{x,y} with 0-100.";
-       const phase = Math.max(2, Math.min(3, Math.floor(+r.phase) || 2));
+       const phase = Math.max(2, Math.min(6, Math.floor(+r.phase) || 2));
        AI.repos.push({key:gkey(p.team, p.name || p.role), to:{x:+r.to.x, y:+r.to.y}, phase});
        AI.maxPhase = Math.max(AI.maxPhase, phase);
        done.push("[ph" + phase + "] " + (p.name || p.role) + " repositions to x" + Math.round(r.to.x) + ",y" + Math.round(r.to.y));
@@ -4141,11 +4176,21 @@ const AGENT_SYSTEM = SYSTEM + `
 
 You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input.
 
-The manifest already lists EVERY player with (x,y) coordinates — for most questions you can draw immediately without any reads. Read at most 2-3 tools (get_space for zone analysis, get_player only when ratings matter), then draw. Never spend all your tools reading.
+The manifest states each team's DIRECTION OF PLAY — always attack toward the opponent's goal, not up the x-axis by habit. The manifest already lists EVERY player with (x,y) coordinates — for most questions you can draw immediately without any reads. Read at most 2-3 tools (get_space for zone analysis, get_player only when ratings matter), then draw. Never spend all your tools reading.
 
-You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 3 PHASES — phase 1 is the first picture, phase 2 shows the next moment with movers relocated to their new spots, the ball carried along the pass chain, and defenders repositioned; the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). When asked HOW to attack, press, build up, or break a block down, DEFAULT to 2-3 phases — real tactics unfold over moments, and a single frozen picture usually undersells the idea. Reserve one phase for genuinely one-moment ideas. Play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
+You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 6 PHASES — and the ball moves only ONCE per phase (receive-then-play is two phases; off-ball runs share phases freely) — phase 1 is the first picture, phase 2 shows the next moment with movers relocated to their new spots, the ball carried along the pass chain, and defenders repositioned; the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). When asked HOW to attack, press, build up, or break a block down, DEFAULT to 2-3 phases — real tactics unfold over moments, and a single frozen picture usually undersells the idea. Reserve one phase for genuinely one-moment ideas. Play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
+
+function attacksRight(board, team){                        // true → this team shoots at the x=100 goal
+  const xs = (board.teams?.[team]?.players || []).map(p => p.x);
+  if (!xs.length) return team === "red";                   // convention fallback
+  return Math.min(...xs) < 100 - Math.max(...xs);          // deepest man marks the defended goal
+}
 
 function rosterManifest(board){
+  const dirLine = ["red", "blue"].map(t => {
+    const right = attacksRight(board, t);
+    return t.toUpperCase() + " defends the x=" + (right ? 0 : 100) + " goal and ATTACKS toward x=" + (right ? 100 : 0);
+  }).join("; ") + ". A shot toward a team's own goal is an own goal — never draw one.";
   const line = team => {
     const t = board.teams?.[team] || {};
     const names = (t.players || [])
@@ -4157,7 +4202,7 @@ function rosterManifest(board){
   const ball = !b ? "" : !b.owner ? " Ball loose." :
     " Ball with " + (playerFromBoard(board, b.owner)?.name || b.owner) + ".";
   const sel = askAbout ? ` The user has selected ${askAbout.name || askAbout.label}.` : "";
-  return "ON THE BOARD: " + line("red") + " " + line("blue") + ball + sel;
+  return "ON THE BOARD: " + line("red") + " " + line("blue") + ball + sel + "\nDIRECTION OF PLAY: " + dirLine;
 }
 
 async function api(payload){

@@ -4141,12 +4141,16 @@ const AGENT_SYSTEM = SYSTEM + `
 
 You have tools that read the board. Call the smallest set that answers the question — most need one, some need none. Never repeat a call with the same input.
 
+The manifest already lists EVERY player with (x,y) coordinates — for most questions you can draw immediately without any reads. Read at most 2-3 tools (get_space for zone analysis, get_player only when ratings matter), then draw. Never spend all your tools reading.
+
 You can also RENDER. draw_actions puts purple coaching arrows on the board in up to 3 PHASES — phase 1 is the first picture, phase 2 shows the next moment with movers relocated to their new spots, the ball carried along the pass chain, and defenders repositioned; the user animates between them (player names for endpoints, steps auto-labelled (a) (b) (c), at most 6 clear actions per phase). When asked HOW to attack, press, build up, or break a block down, DEFAULT to 2-3 phases — real tactics unfold over moments, and a single frozen picture usually undersells the idea. Reserve one phase for genuinely one-moment ideas. Play it out, THEN exploit what opens; highlight_zone shades areas using the same grid cells get_space reports; render_heatmap computes a probability surface (reachability is the lens for stopping or freeing one player); plot draws a radar or bar chart from the ratings. Read before you draw — get the positions first, then render, then answer. When something is rendered, your prose should point at it briefly, not restate every arrow.`;
 
 function rosterManifest(board){
   const line = team => {
     const t = board.teams?.[team] || {};
-    const names = (t.players || []).map(p => p.name || "#"+p.number).join(", ");
+    const names = (t.players || [])
+      .map(p => (p.name || "#"+p.number) + "(" + Math.round(p.x) + "," + Math.round(p.y) + ")")
+      .join(", ");
     return `${team.toUpperCase()} = ${t.squad || "unnamed"} (${t.formation || "?"}): ${names}.`;
   };
   const b = board.ball;
@@ -4211,20 +4215,33 @@ function logTool(name, input){
   addMsg(`⚙ ${name}${args ? " · " + args : ""}`, "tool");
 }
 
+const RENDER_TOOLS = new Set(["draw_actions", "highlight_zone", "render_heatmap", "plot"]);
+
 async function runAgent(question, board){
   const schemas = AGENT_TOOLS.map(({name, description, input_schema}) => ({name, description, input_schema}));
   const msgs = [...history, {role:"user", content: rosterManifest(board) + "\n\nQUESTION: " + question}];
-  let calls = 0;
-  for (let round = 0; round < 4; round++){
+  const wantsRender = RENDER_RX.test(question);
+  let reads = 0, nudged = false;
+  for (let round = 0; round < 7; round++){
     const res = await api({system:AGENT_SYSTEM, messages:msgs, tools:schemas});
     const uses = res.content.filter(c => c.type === "tool_use");
-    if (res.stop_reason !== "tool_use" || !uses.length) return textOf(res);
+    if (res.stop_reason !== "tool_use" || !uses.length){
+      /* backstop: a "show me" question must not end with an empty board */
+      if (wantsRender && !AI.items.length && !nudged){
+        nudged = true;
+        msgs.push({role:"assistant", content:res.content});
+        msgs.push({role:"user", content:"Nothing is drawn on the board yet. The user asked to SEE this — call draw_actions NOW using the coordinates already in the manifest (multiple phases if the plan has a next moment), then give the final answer."});
+        continue;
+      }
+      return textOf(res);
+    }
     msgs.push({role:"assistant", content:res.content});
     const results = [];
     for (const tu of uses){
       let out;
-      if (++calls > 6){
-        out = "Tool budget exhausted — answer with what you already have.";
+      const isRender = RENDER_TOOLS.has(tu.name);
+      if (!isRender && ++reads > 6){                       // renders never burn the read budget
+        out = "Read budget exhausted — the manifest already lists every player with (x,y). Draw and answer with what you have.";
       } else {
         logTool(tu.name, tu.input);
         const tool = AGENT_TOOLS.find(t => t.name === tu.name);

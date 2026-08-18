@@ -589,6 +589,30 @@
   .phase-next{width:auto; padding:0 10px; background:#7a2fd0; border-color:#9a55ea; color:#fff; letter-spacing:.05em}
   .phase-next:hover{background:#8b43de}
   .phase-play{width:auto; padding:0 8px; color:#c9a4f5}
+  .playlog{
+    display:grid; grid-template-columns:1fr 1fr; gap:4px 20px; margin-top:12px;
+    background:#1b1e22; border:1px solid #34383e; border-radius:14px;
+    padding:14px 16px; box-shadow:0 8px 20px rgba(0,0,0,.28);
+  }
+  .playlog-col h4{
+    margin:0 0 8px; font:800 11px/1 var(--body); letter-spacing:.1em; text-transform:uppercase;
+    padding-bottom:7px; border-bottom:1px solid #ffffff14;
+  }
+  .playlog-col[data-team="red"] h4{color:#ff6a5e}
+  .playlog-col[data-team="blue"] h4{color:#7da2ff}
+  .playlog ol{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px}
+  .playlog li.pl-phase{
+    font:800 10px/1 var(--body); letter-spacing:.12em; color:#8b929b;
+    margin:8px 0 3px; text-transform:uppercase;
+  }
+  .playlog li.pl-entry{
+    font:500 13px/1.5 var(--body); color:#e8ebee; cursor:pointer;
+    padding:5px 9px; border-radius:8px; border:1px solid transparent;
+  }
+  .playlog li.pl-entry:hover{background:#ffffff10}
+  .playlog li.pl-entry.on{background:#f2c21f22; border-color:#d8a90e; color:#ffe9a3}
+  .playlog li.pl-entry.dim{color:#9aa1a9}
+  @media (max-width:640px){ .playlog{grid-template-columns:1fr} }
   .phase-lbl{min-width:58px; text-align:center}
   .ink-wrap{position:relative; display:inline-flex}
   .ink-btn{
@@ -728,17 +752,21 @@
       <svg width="26" height="14" viewBox="0 0 26 14" aria-hidden="true"><path d="M1 11q9-11 18-2" stroke="currentColor" stroke-width="1.7" stroke-dasharray="5 2.5 1.5 2.5" fill="none" stroke-linecap="round"/><path d="M24 12l-5.6-4.6-.8 5.8z" fill="currentColor"/></svg>
       LOB
     </button>
+    <button class="tool" type="button" data-tool="through" aria-pressed="false" title="Through pass into space — the closest teammate automatically runs to receive it">
+      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 8h16" stroke="currentColor" stroke-width="1.8" stroke-dasharray="4 3" fill="none" stroke-linecap="round"/><path d="M25 8l-6.5-3.2v6.4z" fill="currentColor"/><path d="M6 3h9" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M19 3l-4.4-2.2v4.4z" fill="currentColor"/></svg>
+      THROUGH
+    </button>
+    <button class="tool" type="button" data-tool="lobthrough" aria-pressed="false" title="Lofted through ball into space — the closest teammate automatically runs to receive it">
+      <svg width="26" height="14" viewBox="0 0 26 14" aria-hidden="true"><path d="M1 11q9-11 18-2" stroke="currentColor" stroke-width="1.7" stroke-dasharray="5 2.5 1.5 2.5" fill="none" stroke-linecap="round"/><path d="M24 12l-5.6-4.6-.8 5.8z" fill="currentColor"/><path d="M5 13h8" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M17 13l-4-2v4z" fill="currentColor"/></svg>
+      LOB THRU
+    </button>
     <button class="tool" type="button" data-tool="dribble" aria-pressed="false" title="Dribble — carry the ball">
       <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6q2.2-3.4 4.5 0t4.5 0 4.5 0 4.5 0" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M25 6l-6.5-3.2v6.4z" fill="currentColor"/></svg>
       DRIBBLE
     </button>
-    <button class="tool" type="button" data-tool="shot" aria-pressed="false" title="Shot — double arrow">
-      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 4h17M1 8h17" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M25 6l-7-4v8z" fill="currentColor"/></svg>
+    <button class="tool" type="button" data-tool="shot" aria-pressed="false" title="Shot at goal — double arrow">
+      <svg width="26" height="14" viewBox="0 0 26 14" aria-hidden="true"><circle cx="7.5" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7.5" cy="7" r="1.4" fill="currentColor"/><path d="M1.5 3.2L3.8 4.6M1.5 10.8L3.8 9.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 7h6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M25.5 7l-6-3v6z" fill="currentColor"/></svg>
       SHOT
-    </button>
-    <button class="tool" type="button" data-tool="hold" aria-pressed="false" title="Move here and hold the position">
-      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h18M22 1.5v9" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-      HOLD
     </button>
     <button class="tool" type="button" data-tool="link" aria-pressed="false" title="Marking assignment or passing lane — dotted line">
       <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M1 6h24" stroke="currentColor" stroke-width="1.8" stroke-dasharray="1.5 3.5" fill="none" stroke-linecap="round"/></svg>
@@ -747,18 +775,6 @@
     <button class="tool" type="button" data-tool="zone" aria-pressed="false" title="Shade a zone — space to attack or defend">
       <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect x="1" y="1.5" width="18" height="11" rx="1.5" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/></svg>
       ZONE
-    </button>
-    <button class="tool" type="button" data-tool="line" aria-pressed="false" title="Defensive or offside line">
-      <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><path d="M2 2v8M24 2v8M2 6h22" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-      LINE
-    </button>
-    <button class="tool" type="button" data-tool="edit" aria-pressed="false" title="Edit a drawing — click it, then drag its ends to reshape or its body to move it">
-      <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><path d="M2 10.5L9.5 3l3 3-7.5 7.5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="14.5" cy="3.5" r="2.4" fill="currentColor"/></svg>
-      EDIT
-    </button>
-    <button class="tool" type="button" data-tool="erase" aria-pressed="false" title="Erase — click any drawing to remove it">
-      <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M6 12h8M2.5 9.5l5-5a1.5 1.5 0 012 0l2.5 2.5a1.5 1.5 0 010 2L8.5 12H5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
-      ERASE
     </button>
 
     <span class="tool-sep" aria-hidden="true"></span>
@@ -870,7 +886,12 @@
     </div>
   </section>
 
-  <p class="hint">Try <b>Scenarios</b> for low blocks, presses and set pieces · in <b>MOVE</b> mode drag players and the ball; click a magnet to rate, sub or add a face · pick a <b>drawing tool</b> to sketch runs, passes and zones, then <b>EDIT</b> to reshape one — Esc steps back, Ctrl+Z undoes, Delete removes · <b>Export / Import</b> carry everything as JSON.</p>
+  <div class="playlog" id="playlog" hidden aria-label="Play-by-play">
+    <div class="playlog-col" data-team="red"><h4 id="plHdRed">Red</h4><ol id="plRed"></ol></div>
+    <div class="playlog-col" data-team="blue"><h4 id="plHdBlue">Blue</h4><ol id="plBlue"></ol></div>
+  </div>
+
+  <p class="hint">Try <b>Scenarios</b> for low blocks, presses and set pieces · in <b>MOVE</b> mode drag players and the ball; click a magnet to rate, sub or add a face · pick a <b>drawing tool</b> to sketch runs, passes and zones — click any drawing to reshape it, Esc steps back, Ctrl+Z undoes, Delete removes · <b>Export / Import</b> carry everything as JSON.</p>
 </main>
 
 <aside class="chat" aria-label="Board analyst">
@@ -1198,6 +1219,36 @@ const SCENARIOS = {
     pts:[[99,97,"COR"],[90,44,"NR"],[90,58,"FAR"],[88,50,"CEN"],[86,42,"CEN"],[86,58,"CEN"],
          [80,50,"EDG"],[95,88,"SHT"],[60,30,"CB"],[55,50,"CB"],[60,70,"CB"]]
   },
+  "Suffocating press": {
+    desc:"Trap them in their own corner — the whole team shifts ball-side and the touchline defends the rest.",
+    ball:null,
+    pts:[[38,42,"GK"],[58,8,"LB"],[56,28,"CB"],[58,48,"CB"],[62,72,"RB"],
+         [68,38,"DM"],[74,16,"CM"],[72,55,"CM"],[88,8,"LW"],[86,30,"ST"],[80,50,"RW"]]
+  },
+  "Gegenpress": {
+    desc:"The five-second rule — the instant it's lost, the nearest men swarm the ball before they can breathe.",
+    ball:null,
+    pts:[[20,50,"GK"],[40,35,"CB"],[40,65,"CB"],[52,15,"LB"],[52,85,"RB"],
+         [58,50,"DM"],[64,38,"CM"],[66,55,"CM"],[70,30,"LW"],[72,46,"ST"],[70,62,"RW"]]
+  },
+  "Positional attack (3-2-5)": {
+    desc:"Settled possession — five lanes occupied up front, a 3-2 rest defence behind the ball.",
+    ball:5,
+    pts:[[12,50,"GK"],[30,25,"CB"],[28,50,"CB"],[30,75,"CB"],[45,38,"DM"],
+         [45,62,"DM"],[78,8,"LW"],[74,30,"IL"],[80,50,"ST"],[74,70,"IR"],[78,92,"RW"]]
+  },
+  "Offside trap": {
+    desc:"A dead-flat line stepping up together — one player a metre deeper and the trap is broken.",
+    ball:null,
+    pts:[[15,50,"GK"],[50,12,"LB"],[50,38,"CB"],[50,62,"CB"],[50,88,"RB"],
+         [58,50,"DM"],[64,35,"CM"],[64,65,"CM"],[72,15,"LW"],[74,50,"ST"],[72,85,"RW"]]
+  },
+  "Long goal-kick battle": {
+    desc:"Straight over the press — keeper launches to the target man, midfield set for the second ball.",
+    ball:1,
+    pts:[[4,50,"GK"],[35,12,"LB"],[30,38,"CB"],[30,62,"CB"],[35,88,"RB"],
+         [48,50,"DM"],[58,38,"CM"],[58,62,"CM"],[68,20,"LW"],[72,50,"ST"],[68,80,"RW"]]
+  },
 };
 const MY_SCENARIOS = {};                                   // user-saved, same shape
 const allScenarios = () => ({...SCENARIOS, ...MY_SCENARIOS});
@@ -1208,7 +1259,8 @@ const sel  = {red:$("selRed"),  blue:$("selBlue")};
 const tDiv = {red:$("teamRed"), blue:$("teamBlue")};
 const pop = $("pop"), popName = $("popName"), popErr = $("popErr");
 const players = new Map();                                // id → {id,team,role,x,y,label,n,el}
-const DEFAULT_SHAPE = {red:"4-4-2", blue:"4-3-3"};          // what Reset returns to
+const DEFAULT_SHAPE = {red:"4-3-3", blue:"4-3-3"};          // what Reset returns to
+const DEFAULT_SQUAD = {red:"Real Madrid", blue:"Barcelona"}; // the default match-up
 const lastStock = {red:"4-4-2", blue:"4-3-3"};
 let zTop = 5, toastTimer = 0, delayTimer = 0;
 
@@ -1711,7 +1763,7 @@ for (const t of ["red","blue"]){
 const drawSvg = $("draw"), capLayer = $("capture");
 const SHAPES = [];                                         // {id,type,pts:[{x,y}],ink}
 const ARROWED = new Set(["run","pass","dribble","shot","lob"]);
-const CURVABLE = new Set(["run","pass","dribble","shot","hold","link"]);
+const CURVABLE = new Set(["run","pass","dribble","shot","link"]);
 let tool = "none", ink = "#16181b", shapeSeq = 0, drawing = null, curveOn = false;
 let userPhase = 1;                                         // the phase you draw into AND view
 const MAX_USER_PHASE = 9;
@@ -1829,10 +1881,120 @@ function offsetPath(v, off){                               // parallel copy, for
   return out;
 }
 
+/* ── play-by-play narration under the board ─────────────────
+   One sentence per player action, split by team, phase-headed.
+   Click a line → that arrow lights up (jumping to its phase);
+   click an arrow → its line lights up. Zones stay out of it.  */
+let hlId = null;                                           // shape id currently highlighted
+
+function plName(g){                                        // "Yamal (10)", or "#10" without a name
+  if (!g) return "someone";
+  const live = [...players.values()].find(q => ukey(q.team, q.name || q.role) === ukey(g.team, g.name));
+  const nm = live ? shortName(live) : (g.name && !/^[A-Z]{1,3}\d*$/.test(g.name) ? g.name.split(" ").pop() : "");
+  const num = g.n != null ? g.n : (live ? live.n : null);
+  if (nm && num != null) return nm + " (" + num + ")";
+  if (nm) return nm;
+  return num != null ? "#" + num : "someone";
+}
+
+function plSpot(p){                                        // "the middle third, top"
+  const idx = v => v < GRID_B[1] ? 0 : v < GRID_B[2] ? 1 : 2;
+  return "the " + THIRD_WORDS[idx(p.x)].replace(/'s defensive third/, " defensive third") + ", " + CHAN_WORDS[idx(p.y)];
+}
+
+function plNearest(posMap, pt, radius, team){              // team: restrict to that side
+  let best = radius, hit = null;
+  for (const g of posMap.values()){
+    if (team && g.team !== team) continue;
+    const d = Math.hypot(g.x - pt.x, g.y - pt.y);
+    if (d < best){ best = d; hit = g; }
+  }
+  return hit;
+}
+
+function plSentence(sh, posMap, all){
+  const A = plNearest(posMap, sh.pts[0], 9, sh.team || null);
+  const E = sh.pts[sh.pts.length - 1];
+  const who = plName(A);
+  if (sh.type === "pass" || sh.type === "lob"){
+    const B = plNearest(posMap, E, 6, sh.team || (A && A.team) || null);   // a receiver is a TEAMMATE
+    const verb = sh.type === "lob" ? "lofts it to" : "passes to";
+    if (B && (!A || B.name !== A.name)) return who + " " + verb + " " + plName(B) + ".";
+    const runner = all.find(r => r.type === "run" && shPhase(r) === shPhase(sh) &&
+                                 Math.hypot(r.pts[r.pts.length-1].x - E.x, r.pts[r.pts.length-1].y - E.y) < 1);
+    if (runner && runner.moverKey){
+      const [t, n] = runner.moverKey.split("|");
+      return who + (sh.type === "lob" ? " lofts " : " slides ") + plName({team:t, name:n}) + " through into " + plSpot(E) + ".";
+    }
+    return who + " " + verb + " " + plSpot(E) + ".";
+  }
+  if (sh.type === "dribble") return who + " dribbles into " + plSpot(E) + ".";
+  if (sh.type === "shot")    return who + " shoots!";
+  if (sh.type === "run"){
+    const mover = sh.moverKey ? sh.moverKey.split("|") : null;
+    const runner = mover ? plName({team:mover[0], name:mover[1]}) : who;
+    /* a run created by a through ball is already narrated on the pass line */
+    const isReceive = all.some(p => (p.type === "pass" || p.type === "lob") && shPhase(p) === shPhase(sh) &&
+                                    Math.hypot(p.pts[p.pts.length-1].x - sh.pts[1].x, p.pts[p.pts.length-1].y - sh.pts[1].y) < 1 &&
+                                    plNearest(posMap, p.pts[p.pts.length-1], 6, p.team || null) === null);
+    if (isReceive) return runner + " runs onto it.";
+    return runner + " runs into " + plSpot(sh.pts[sh.pts.length - 1]) + ".";
+  }
+  if (sh.type === "link"){
+    const oppTeam = sh.team === "red" ? "blue" : sh.team === "blue" ? "red" : null;
+    const opp = plNearest(posMap, E, 6, oppTeam);
+    return who + " marks " + plName(opp) + ".";
+  }
+  if (sh.type === "hold") return who + " holds position at " + plSpot(E) + ".";
+  return null;
+}
+
+function renderPlaylog(){
+  const box = $("playlog");
+  if (!box) return;
+  const acts = SHAPES.filter(sh => sh.type !== "zone" && sh.type !== "line");
+  box.hidden = !acts.length;
+  if (!acts.length) return;
+  const b = boardJSON();
+  $("plHdRed").textContent  = b.teams?.red?.squad  || "Red";
+  $("plHdBlue").textContent = b.teams?.blue?.squad || "Blue";
+  const posBy = {};
+  const maxPh = userMaxPhase();
+  for (let q = 1; q <= maxPh; q++) posBy[q] = projectUserPositions(q);
+  for (const team of ["red", "blue"]){
+    const ol = $(team === "red" ? "plRed" : "plBlue");
+    ol.innerHTML = "";
+    for (let q = 1; q <= maxPh; q++){
+      const rows = acts.filter(sh => (sh.team || "none") === team && shPhase(sh) === q);
+      if (!rows.length) continue;
+      if (maxPh > 1){
+        const h = document.createElement("li");
+        h.className = "pl-phase";
+        h.textContent = "Phase " + q;
+        ol.appendChild(h);
+      }
+      for (const sh of rows){
+        const txt = plSentence(sh, posBy[q], acts);
+        if (!txt) continue;
+        const li = document.createElement("li");
+        li.className = "pl-entry" + (sh.id === hlId ? " on" : "") + (q !== userPhase ? " dim" : "");
+        li.dataset.sid = sh.id;
+        li.textContent = (sh.n ? sh.n + ". " : "") + txt;
+        li.addEventListener("click", () => {
+          hlId = hlId === sh.id ? null : sh.id;
+          if (hlId && shPhase(sh) !== userPhase) setUserPhase(shPhase(sh), false);
+          else renderShapes();
+        });
+        ol.appendChild(li);
+      }
+    }
+  }
+}
+
 /* ── manual phases ──────────────────────────────────────────
    You draw INTO the selected phase. Earlier phases linger faintly, players
    who ran/dribbled/held ghost forward, and the play button animates it.  */
-const U_MOVERS = new Set(["run", "dribble", "hold"]);
+const U_MOVERS = new Set(["run", "dribble"]);
 const ukey = (team, name) => (team || "?") + "|" + (name || "?");
 
 function nearestProjected(pt, radius){                     // nearest player AS OF the current phase
@@ -1846,13 +2008,26 @@ function nearestProjected(pt, radius){                     // nearest player AS 
   return hit;
 }
 
+function nearestTeammate(pt, team, exceptKey, radius){     // closest same-team player (projected)
+  let best = radius == null ? Infinity : radius, hit = null;
+  try {
+    for (const [key, g] of projectUserPositions(userPhase)){
+      if (g.team !== team || key === exceptKey) continue;
+      const d = Math.hypot(g.x - pt.x, g.y - pt.y);
+      if (d < best){ best = d; hit = {key, g}; }
+    }
+  } catch (e) {}
+  return hit;
+}
+
 function snapMover(s){                                     // anchor a movement to its nearest player
   if (!U_MOVERS.has(s.type)) return;
   const hit = nearestProjected(s.pts[0], 8);
   s.moverKey = hit ? hit.key : null;
 }
 
-const BALL_ACTIONS = new Set(["pass", "lob", "dribble", "shot"]);
+const BALL_ACTIONS = new Set(["pass", "lob", "dribble", "shot"]);          // shape TYPES stored on the board
+const BALL_TOOLS   = new Set(["pass", "lob", "through", "lobthrough", "dribble", "shot"]);  // toolbar tools
 
 function projectedBallPos(phase){                          // where the ball is entering `phase`
   if (!BALL.owner) return null;
@@ -1898,7 +2073,7 @@ function projectUserPositions(phase){
   const board = boardJSON();
   for (const team of ["red", "blue"])
     for (const p of (board.teams?.[team]?.players || []))
-      pos.set(ukey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n});
+      pos.set(ukey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n != null ? p.n : p.number});
   for (let q = 2; q <= phase; q++)
     for (const sh of SHAPES){
       if (shPhase(sh) !== q - 1 || !U_MOVERS.has(sh.type) || !sh.moverKey) continue;
@@ -1906,6 +2081,58 @@ function projectUserPositions(phase){
       if (g){ const e = sh.pts[sh.pts.length - 1]; g.x = e.x; g.y = e.y; }
     }
   return pos;
+}
+
+let repClipSeq = 0;
+function replicaMagnet(g, key){                            // mirrors the live magnet display format
+  const live = [...players.values()].find(q => ukey(q.team, q.name || q.role) === key);
+  const cls = document.body.classList;
+  const showNum = cls.contains("show-num"), showName = cls.contains("show-name"),
+        showFace = cls.contains("show-face");
+  const team = g.team;
+  const grp = el("g", {class:"ai-ghost"});
+  grp.appendChild(el("circle", {r:27, fill:"#16181b", "fill-opacity":.28, cy:4}));   // soft drop shadow
+  grp.appendChild(el("circle", {r:26, fill:team === "red" ? "#d63a2f" : "#2a5bd0",
+                                stroke:"#fbfaf6", "stroke-width":3}));
+  if (showFace){
+    if (live && live.face){
+      const cid = "repclip" + (++repClipSeq);
+      const clip = el("clipPath", {id:cid});
+      clip.appendChild(el("circle", {r:24.5}));
+      grp.appendChild(clip);
+      const img = el("image", {x:-24.5, y:-24.5, width:49, height:49,
+                               preserveAspectRatio:"xMidYMid slice", "clip-path":"url(#" + cid + ")"});
+      img.setAttribute("href", live.face);
+      grp.appendChild(img);
+    } else {
+      const ini = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":15,
+                              "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+      ini.textContent = live ? initialsOf(live) : (g.name || "").split(" ").map(w => w[0]).join("").slice(0, 3).toUpperCase();
+      grp.appendChild(ini);
+    }
+  }
+  if (showNum && g.n != null){
+    if (showFace){                                         // corner badge, like the live magnet
+      grp.appendChild(el("circle", {cx:17, cy:17, r:9.5, fill:"#16181b"}));
+      const t = el("text", {x:17, y:17, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":10.5,
+                            "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+      t.textContent = g.n;
+      grp.appendChild(t);
+    } else {
+      const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
+                            "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+      t.textContent = g.n;
+      grp.appendChild(t);
+    }
+  }
+  if (showName){
+    const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
+                            "font-weight":700, "text-anchor":"middle",
+                            stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
+    lbl.textContent = live ? shortName(live) : (g.name || "").split(" ").pop();
+    grp.appendChild(lbl);
+  }
+  return grp;
 }
 
 function userGhosts(svg, ghostFrom){
@@ -1918,19 +2145,8 @@ function userGhosts(svg, ghostFrom){
     const live = board.teams?.[g.team]?.players?.find(p => (p.name || p.role) === g.name);
     if (!live || (Math.abs(live.x - g.x) < 1 && Math.abs(live.y - g.y) < 1)) continue;
     const v = toView(g);
-    const grp = el("g", {class:"ai-ghost", transform:`translate(${v.x} ${v.y})`});
-    grp.appendChild(el("circle", {r:27, fill:"#16181b", "fill-opacity":.28, cy:4}));   // soft drop shadow
-    grp.appendChild(el("circle", {r:26, fill:g.team === "red" ? "#d63a2f" : "#2a5bd0",
-                                  stroke:"#fbfaf6", "stroke-width":3}));
-    const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
-                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
-    t.textContent = g.n != null ? g.n : (g.name || "").slice(0, 2);
-    grp.appendChild(t);
-    const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
-                            "font-weight":700, "text-anchor":"middle",
-                            stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
-    lbl.textContent = (g.name || "").split(" ").pop();
-    grp.appendChild(lbl);
+    const grp = replicaMagnet(g, key);
+    grp.setAttribute("transform", `translate(${v.x} ${v.y})`);
     gG.appendChild(grp);
     if (fromPositions && fromPositions.has(key)){
       const from = toView(fromPositions.get(key));
@@ -2016,8 +2232,11 @@ function renderShapes(preview, ghostFrom){
 
   try { if (userMaxPhase() > 1 || userPhase > 1) userGhosts(drawSvg, ghostFrom); } catch (e) {}
   try { syncProjectionVisibility(); } catch (e) {}
+  try { renderPlaylog(); } catch (e) {}
 
-  all.forEach(s => {
+  all.forEach(raw => {
+    const s = raw.type === "through"    ? {...raw, type:"pass"}
+            : raw.type === "lobthrough" ? {...raw, type:"lob"} : raw;   // through-ball previews
     const ph = shPhase(s);
     if (ph > userPhase) return;                            // future phases stay hidden
     const faint = ph < userPhase;
@@ -2025,12 +2244,28 @@ function renderShapes(preview, ghostFrom){
     if (v.length < 2) return;
     const g = el("g", faint ? {opacity:.14} : {});
     const W = 5.5, color = s.ink;
+    if (s.id === hlId && !faint){                          // halo for the play-by-play highlight
+      const hd = s.type === "zone"
+        ? null
+        : (s.type === "lob" ? lobArc(v).d : s.type === "dribble" ? wavyD(v) : smoothD(v));
+      if (hd) g.appendChild(el("path", {d:hd, stroke:"#f2c21f", "stroke-width":18, "stroke-opacity":.55,
+                                        fill:"none", "stroke-linecap":"round"}));
+    }
 
     if (s.type === "zone"){
       const x = Math.min(v[0].x, v[1].x), y = Math.min(v[0].y, v[1].y);
       const w = Math.abs(v[1].x - v[0].x), h = Math.abs(v[1].y - v[0].y);
       g.appendChild(el("rect", {x, y, width:w, height:h, rx:8, fill:color, "fill-opacity":.16,
                                 stroke:color, "stroke-width":4, "stroke-dasharray":"14 9"}));
+      if (s.n){                                            // its own id, so zones can be told apart
+        const tag = el("g", {class:"seq"});
+        tag.appendChild(el("rect", {x:x + 7, y:y + 7, width:36, height:24, rx:7, fill:color}));
+        const t = el("text", {x:x + 25, y:y + 19, fill:"#fff", "font-family":"system-ui, sans-serif",
+                              "font-size":14, "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
+        t.textContent = "Z" + s.n;
+        tag.appendChild(t);
+        g.appendChild(tag);
+      }
     } else if (s.type === "line"){
       g.appendChild(el("path", {d:`M${v[0].x} ${v[0].y}L${v[1].x} ${v[1].y}`,
                                 stroke:color, "stroke-width":W, "stroke-linecap":"round", fill:"none"}));
@@ -2061,9 +2296,10 @@ function renderShapes(preview, ghostFrom){
     }
 
     // sequence badge at the start of the move
-    if (s.n){
+    if (s.n && s.type !== "zone"){
       const seq = el("g", {class:"seq"});
-      seq.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:13, fill:color}));
+      const ring = s.team === "red" ? "#d63a2f" : s.team === "blue" ? "#2a5bd0" : "#fbfaf6";
+      seq.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:13, fill:color, stroke:ring, "stroke-width":3.5}));
       const t = el("text", {x:v[0].x, y:v[0].y, fill:"#fff", "font-family":"system-ui, sans-serif",
                             "font-size":16, "font-weight":700,
                             "text-anchor":"middle", "dominant-baseline":"central"});
@@ -2165,9 +2401,15 @@ function shapeDistance(s, click){
   return best;
 }
 
-function renumber(){
-  let i = 0;
-  for (const s of SHAPES) s.n = s.type === "zone" || s.type === "line" ? null : ++i;
+function renumber(){                                       // each team counts its own sequence,
+  const c = {red:0, blue:0, none:0};                       // and zones count their own (Z1, Z2…)
+  let z = 0;
+  for (const s of SHAPES){
+    if (s.type === "line"){ s.n = null; continue; }
+    if (s.type === "zone"){ s.n = ++z; continue; }
+    if (!s.team && s.moverKey) s.team = s.moverKey.split("|")[0];   // backfill older shapes
+    s.n = ++c[s.team === "red" || s.team === "blue" ? s.team : "none"];
+  }
 }
 
 /* ── tool selection ─────────────────────────────────────── */
@@ -2303,32 +2545,53 @@ capLayer.addEventListener("pointerdown", e => {
     return;
   }
 
-  if (tool === "run" || tool === "hold"){                  // movement belongs to a player
+  if (tool === "link"){                                    // marking pairs two OPPOSITE players
+    const hit = nearestProjected(p, 8);
+    if (!hit){
+      say("Marking starts on a player — begin on the man doing the marking");
+      return;
+    }
+    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:hit.g.x, y:hit.g.y}, p], n:null,
+               phase:userPhase, markFromTeam:hit.g.team, team:hit.g.team};
+    capLayer.setPointerCapture(e.pointerId);
+    renderShapes(drawing);
+    return;
+  }
+  if (tool === "run"){                                     // movement belongs to a player
     const hit = nearestProjected(p, 8);
     if (!hit){
       say("A " + tool + " starts from a player — begin the arrow on one of the magnets");
       return;
     }
-    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:hit.g.x, y:hit.g.y}, p], n:null, phase:userPhase};
+    const bp = projectedBallPos(userPhase);                // the man on the ball doesn't RUN —
+    if (bp && Math.hypot(hit.g.x - bp.x, hit.g.y - bp.y) <= 4.5){   // he dribbles
+      say("He has the ball — use DRIBBLE to carry it (runs are off-ball)");
+      return;
+    }
+    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:hit.g.x, y:hit.g.y}, p], n:null,
+               phase:userPhase, team:hit.g.team};
     capLayer.setPointerCapture(e.pointerId);
     renderShapes(drawing);
     return;
   }
-  if (BALL_ACTIONS.has(tool)){                             // only the man on the ball plays it
+  if (BALL_TOOLS.has(tool)){                               // only the man on the ball plays it
+    const verb = tool === "through" ? "through pass" : tool === "lobthrough" ? "lofted through ball" : tool;
     if (SHAPES.some(sh => shPhase(sh) === userPhase && BALL_ACTIONS.has(sh.type))){
-      say("The ball already moves in this phase — press NEXT PHASE, then draw the " + tool);
+      say("The ball already moves in this phase — press NEXT PHASE, then draw the " + verb);
       return;
     }
     const bp = projectedBallPos(userPhase);
     if (!bp){
-      say("Give a player the ball first — drag the ball onto him, then draw the " + tool);
+      say("Give a player the ball first — drag the ball onto him, then draw the " + verb);
       return;
     }
     if (Math.hypot(p.x - bp.x, p.y - bp.y) > 8){
-      say("Only the player with the ball can " + tool + " — start the arrow from where the ball is");
+      say("Only the player with the ball can play a " + verb + " — start the arrow from where the ball is");
       return;
     }
-    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:bp.x, y:bp.y}, p], n:null, phase:userPhase};
+    const src = nearestProjected(bp, 8);                   // who is on the ball, and for which team
+    drawing = {id:"s" + (++shapeSeq), type:tool, ink, pts:[{x:bp.x, y:bp.y}, p], n:null, phase:userPhase,
+               srcKey:src ? src.key : null, srcTeam:src ? src.g.team : null, team:src ? src.g.team : null};
     capLayer.setPointerCapture(e.pointerId);
     renderShapes(drawing);
     return;
@@ -2372,12 +2635,90 @@ function finishDrawing(){
   const tiny = s.type === "zone" ? Math.abs(s.pts[0].x - s.pts[1].x) < 3 || Math.abs(s.pts[0].y - s.pts[1].y) < 3
                                  : span < 2.5;
   if (tiny){ renderShapes(); return; }                     // ignore accidental taps
+  if (s.type === "pass" || s.type === "lob"){              // a pass needs a RECEIVER
+    const E = s.pts[s.pts.length - 1];
+    const recv = s.srcTeam ? nearestTeammate(E, s.srcTeam, s.srcKey, 8) : null;
+    if (!recv){
+      say("A " + s.type + " needs a receiver — finish on a teammate (or use THROUGH to play into space)");
+      renderShapes(); return;
+    }
+    s.pts = [s.pts[0], {x:recv.g.x, y:recv.g.y}];          // snap to the closest teammate
+    delete s.srcKey; delete s.srcTeam;
+  }
+  if (s.type === "through" || s.type === "lobthrough"){    // ball into SPACE + an automatic run
+    const E = s.pts[s.pts.length - 1];
+    const recv = s.srcTeam ? nearestTeammate(E, s.srcTeam, s.srcKey, null) : null;
+    if (!recv){
+      say("No teammate available to run onto that ball");
+      renderShapes(); return;
+    }
+    s.type = s.type === "through" ? "pass" : "lob";        // stored as a normal pass/lob
+    delete s.srcKey; delete s.srcTeam;
+    s.autoRun = {pts:[{x:recv.g.x, y:recv.g.y}, {x:E.x, y:E.y}], moverKey:recv.key,
+                 nm:(recv.g.name || "").split(" ").pop()};
+  }
+  if (s.type === "link"){                                  // marking must END on an opponent
+    const end = nearestProjected(s.pts[s.pts.length - 1], 8);
+    if (!end){
+      say("Marking ends on the opponent being marked — finish the line on his magnet");
+      renderShapes(); return;
+    }
+    if (end.g.team === s.markFromTeam){
+      say("You can't mark a teammate — finish the line on an OPPOSITE team player");
+      renderShapes(); return;
+    }
+    s.pts = [s.pts[0], {x:end.g.x, y:end.g.y}];            // snap tight to both magnets
+    delete s.markFromTeam;
+  }
   snapMover(s);
-  SHAPES.push(s);
+  const auto = s.autoRun; delete s.autoRun;
+  SHAPES.push(s);                                          // the ball first, then the runner —
+  if (auto){                                               // so the sequence reads pass → run
+    SHAPES.push({id:"s" + (++shapeSeq), type:"run", ink:s.ink, n:null, phase:s.phase,
+                 pts:auto.pts, moverKey:auto.moverKey, team:s.team || null});
+    say(auto.nm + " runs to receive it");
+  }
   renumber(); renderShapes();
 }
 capLayer.addEventListener("pointerup", finishDrawing);
 capLayer.addEventListener("pointercancel", finishDrawing);
+
+/* In plain pointer mode a drawing is directly clickable: tapping it jumps
+   straight into EDIT with it selected — drag its ends, drag its body, or hit
+   Delete. No trip to the toolbar. Magnets and the ball still win the click. */
+board.addEventListener("pointerdown", e => {
+  if (tool !== "none") return;
+  if (e.target.closest(".magnet") || e.target.closest(".ball")) return;
+  const p = atPointer(e);
+  let hit = null, best = 34;
+  for (let i = SHAPES.length - 1; i >= 0; i--){
+    if (shPhase(SHAPES[i]) !== userPhase) continue;
+    const d = shapeDistance(SHAPES[i], p);
+    if (d < best){ best = d; hit = i; break; }
+  }
+  if (hit === null) return;
+  setTool("edit");
+  selIdx = hit;
+  hlId = SHAPES[hit].id;                                   // light up its play-by-play line too
+  renderShapes();
+  const row = document.querySelector('.pl-entry[data-sid="' + hlId + '"]');
+  if (row) row.scrollIntoView({block:"nearest", behavior:"smooth"});
+  say("Editing — drag the ends or body; Delete removes it; Esc puts the pen down");
+});
+
+/* Delete / Backspace removes the selected drawing while editing */
+document.addEventListener("keydown", e => {
+  const t = e.target;
+  if (t && typeof t.matches === "function" && t.matches("input, select, textarea")) return;
+  if ((e.key === "Delete" || e.key === "Backspace") && tool === "edit" && selIdx !== null && SHAPES[selIdx]){
+    if (SHAPES[selIdx].id === hlId) hlId = null;
+    SHAPES.splice(selIdx, 1);
+    selIdx = null;
+    renumber(); renderShapes();
+    say("Deleted");
+    e.preventDefault();
+  }
+});
 
 document.addEventListener("keydown", e => {
   const t = e.target;
@@ -2519,7 +2860,7 @@ for (const b of document.querySelectorAll("[data-cap]")){
 /* ── render engine: AI overlay, zones, heatmaps, charts ─────
    The analyst draws on its OWN layer. User Undo/Clear never touch it; a new
    question replaces it; Keep converts it into ordinary editable drawings.   */
-const AI = {items:[], budget:0, seq:0, question:"", phase:1, maxPhase:1, perPhase:{}, repos:[]};
+const AI = {items:[], budget:0, seq:0, seqBy:{red:0, blue:0, none:0}, question:"", phase:1, maxPhase:1, perPhase:{}, repos:[]};
 /* 1 → (a), 2 → (b) … 27 → (aa); the analyst never gets past 8, but be safe */
 const seqLetter = n => {
   let s = "", v = Math.max(1, Math.floor(n));
@@ -2531,14 +2872,14 @@ const seqLetter = n => {
    Where is everyone at the START of phase q?  Board positions, plus every
    movement executed in earlier phases, plus any analyst repositions that
    kick in at q (defenders reacting to what just happened).              */
-const MOVER_TYPES = new Set(["run", "dribble", "hold"]);
+const MOVER_TYPES = new Set(["run", "dribble"]);
 const gkey = (team, name) => (team || "?") + "|" + (name || "?");
 
 function projectPositions(board, phase){
   const pos = new Map();                                   // key → {x,y,team,name,n}
   for (const team of ["red", "blue"])
     for (const p of (board.teams?.[team]?.players || []))
-      pos.set(gkey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n});
+      pos.set(gkey(team, p.name || p.role), {x:p.x, y:p.y, team, name:p.name || p.role, n:p.n != null ? p.n : p.number});
   for (let q = 2; q <= phase; q++){
     for (const it of AI.items){                            // movements executed in phase q-1
       if (it.kind !== "shape" || it.phase !== q - 1) continue;
@@ -2560,6 +2901,7 @@ function clearAI(question){
   AI.items.length = 0;
   AI.budget = 0;
   AI.seq = 0;
+  AI.seqBy = {red:0, blue:0, none:0};
   AI.phase = 1;
   AI.maxPhase = 1;
   AI.perPhase = {};
@@ -2664,19 +3006,8 @@ function renderAI(ghostFrom){
     const live = board.teams?.[g.team]?.players?.find(p => (p.name || p.role) === g.name);
     if (!live || (Math.abs(live.x - g.x) < 1 && Math.abs(live.y - g.y) < 1)) continue;
     const v = toView(g);
-    const grp = el("g", {class:"ai-ghost", transform:`translate(${v.x} ${v.y})`});
-    grp.appendChild(el("circle", {r:27, fill:"#16181b", "fill-opacity":.28, cy:4}));   // soft drop shadow
-    grp.appendChild(el("circle", {r:26, fill:g.team === "red" ? "#d63a2f" : "#2a5bd0",
-                                  stroke:"#fbfaf6", "stroke-width":3}));
-    const t = el("text", {fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":18,
-                          "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
-    t.textContent = g.n != null ? g.n : (g.name || "").slice(0, 2);
-    grp.appendChild(t);
-    const lbl = el("text", {y:42, fill:"#fff", "font-family":"system-ui,sans-serif", "font-size":13,
-                            "font-weight":700, "text-anchor":"middle",
-                            stroke:"#16181b", "stroke-width":3, "paint-order":"stroke"});
-    lbl.textContent = (g.name || "").split(" ").pop();
-    grp.appendChild(lbl);
+    const grp = replicaMagnet(g, key);
+    grp.setAttribute("transform", `translate(${v.x} ${v.y})`);
     ghostG.appendChild(grp);
     ghostEls.set(key, {el:grp, to:v});
   }
@@ -2735,7 +3066,8 @@ function renderAI(ghostFrom){
         g.appendChild(arrowHead(type === "lob" ? [lobArc(v).ctrl, lobArc(v).b] : v, type === "shot" ? 28 : 21, it.ink));
       if (type === "hold") g.appendChild(endBar(v, 15, it.ink, 5.5));
       if (it.seq){
-        g.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:18, fill:"#f2c21f", stroke:"#16181b", "stroke-width":2.5}));
+        const ring = it.seqTeam === "red" ? "#d63a2f" : it.seqTeam === "blue" ? "#2a5bd0" : "#16181b";
+        g.appendChild(el("circle", {cx:v[0].x, cy:v[0].y, r:18, fill:"#f2c21f", stroke:ring, "stroke-width":3.5}));
         const t = el("text", {x:v[0].x, y:v[0].y, fill:"#16181b", "font-family":"system-ui,sans-serif",
                               "font-size":20, "font-weight":800, "text-anchor":"middle", "dominant-baseline":"central"});
         t.textContent = seqLetter(it.seq);
@@ -2860,7 +3192,8 @@ $("aiKeep").addEventListener("click", () => {
   for (const it of AI.items){
     if (it.kind === "shape"){
       SHAPES.push({id:"s"+(++shapeSeq), type:it.type, pts:it.pts.map(p => ({...p})), ink:it.ink, n:null,
-                   phase:it.phase || 1, moverKey:it.moverKey || null});
+                   phase:it.phase || 1, moverKey:it.moverKey || null,
+                   team:it.seqTeam === "red" || it.seqTeam === "blue" ? it.seqTeam : null});
     } else {
       for (const loop of it.loops){                        // one rectangle PER disjoint loop —
         const xs = loop.map(p => p.x), ys = loop.map(p => p.y);   // never bbox them together,
@@ -3309,6 +3642,8 @@ $("benchAdd").addEventListener("click", () => {
 /* ── what to show on each magnet ────────────────────────── */
 const showPop = $("showPop"), showBtn = $("showBtn");
 const toggles = {"show-num":$("tgNum"), "show-name":$("tgName"), "show-face":$("tgFace")};
+for (const inp of Object.values(toggles))
+  inp.addEventListener("change", () => { try { renderShapes(); renderAI(); } catch (e) {} });
 function applyShow(){
   for (const [cls, box] of Object.entries(toggles))
     document.body.classList.toggle(cls, box.checked);
@@ -3332,16 +3667,22 @@ document.addEventListener("pointerdown", e => {
 $("resetBtn").addEventListener("click", () => {
   closePop();
   closeInspector();
-  for (const t of ["red","blue"]){
-    sq[t].value = "";                                      // back to plain magnets, no squad
-    sel[t].value = DEFAULT_SHAPE[t];
+  for (const t of ["red","blue"]){                         // back to the default match-up,
+    sel[t].value = DEFAULT_SHAPE[t];                       // squads and kickoff positions
     lastStock[t] = DEFAULT_SHAPE[t];
-    loadSquad(t, "", true);                                // clears names, faces, ratings and bench
+    applyFormation(t, DEFAULT_SHAPE[t], false);
+    sq[t].value = DEFAULT_SQUAD[t];
+    loadSquad(t, DEFAULT_SQUAD[t], true);
     refreshChip(t);
   }
   BALL.x = 50; BALL.y = 50;
   giveBall(null);
-  say("Board reset — no squad loaded");
+  SHAPES.length = 0;                                       // a clean slate: drawings, phases,
+  selIdx = null; hlId = null;                              // and any analyst overlay
+  setUserPhase(1, false);
+  clearAI();
+  renumber(); renderShapes();
+  say("Board reset — Real Madrid v Barcelona, default positions");
 });
 
 /* ============================================================================
@@ -3616,7 +3957,7 @@ $("resetBtn").addEventListener("click", () => {
     return list.map(s => {
       const a = s.points[0], b = s.points[s.points.length - 1];
       const tag = s.sequence ? `${s.sequence}. ` : "- ";
-      if (s.type === "zone") return `${tag}${words.zone} covering x=${r0(a.x)}-${r0(b.x)}, y=${r0(a.y)}-${r0(b.y)}`;
+      if (s.type === "zone") return `${tag}zone Z${s.n || "?"} covering x=${r0(a.x)}-${r0(b.x)}, y=${r0(a.y)}-${r0(b.y)}`;
       return `${tag}${words[s.type] || s.type}: ${who(a)} → ${who(b)}`;
     }).join("\n");
   }
@@ -4026,10 +4367,10 @@ const AGENT_TOOLS = [
    }},
 
   {name:"draw_actions",
-   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. A tactical plan almost always has more than one moment, so DEFAULT to 2-3 phases for any attack/press/build-up plan: phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear moved to their new spots, the ball travels with the pass chain, and the board animates the transition. Only use a single phase for a genuinely one-moment idea (a single switch, one marking assignment). Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. All arrows render purple automatically. HARD RULE: the ball moves ONCE per phase — one pass/lob/dribble/shot per phase, so 'receive then play' is always two phases (pass in phase 1, the receiver's dribble/pass/shot in phase 2). Off-ball runs, holds and marks can share any phase freely. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, hold (go and stay), mark (defensive assignment, dotted). Max 8 actions per phase, up to 6 phases — fewer, clearer arrows teach better.",
+   description:"Draw coaching notation on the board's suggestion overlay, in PHASES. A tactical plan almost always has more than one moment, so DEFAULT to 2-3 phases for any attack/press/build-up plan: phase 1 is the first picture; actions with phase:2 show what happens NEXT — players who ran/dribbled in phase 1 appear moved to their new spots, the ball travels with the pass chain, and the board animates the transition. Only use a single phase for a genuinely one-moment idea (a single switch, one marking assignment). Use repositions to shift reacting players (e.g. defenders sliding across) at the start of a later phase. All arrows render purple automatically. HARD RULE: the ball moves ONCE per phase — one pass/lob/dribble/shot per phase, so 'receive then play' is always two phases (pass in phase 1, the receiver's dribble/pass/shot in phase 2). Off-ball runs and marks can share any phase freely. Use player NAMES for endpoints wherever possible; {x,y} (0-100) only for open space. Types: run (off-ball), pass, lob (aerial), dribble, shot, mark (defensive assignment, dotted). To show a player staying put, simply don't move him in the next phase. Max 8 actions per phase, up to 6 phases — fewer, clearer arrows teach better.",
    input_schema:{type:"object", properties:{
      actions:{type:"array", items:{type:"object", properties:{
-       type:{type:"string", enum:["run","pass","lob","dribble","shot","hold","mark"]},
+       type:{type:"string", enum:["run","pass","lob","dribble","shot","mark"]},
        from:{description:"Player name or {x,y}"},
        to:{description:"Player name or {x,y}"},
        phase:{type:"integer", description:"Which phase of the move this belongs to (1, 2, 3). Default 1."},
@@ -4051,8 +4392,8 @@ const AGENT_TOOLS = [
        if (it.kind === "shape" && BALL_ACTIONS.has(it.actType))
          ballIn[it.phase || 1] = (ballIn[it.phase || 1] || 0) + 1;
      for (const act of list){
-       if (!["run","pass","lob","dribble","shot","hold","mark"].includes(act.type))
-         return 'Unknown action type "' + act.type + '" — use run, pass, lob, dribble, shot, hold or mark.';
+       if (!["run","pass","lob","dribble","shot","mark"].includes(act.type))
+         return 'Unknown action type "' + act.type + '" — use run, pass, lob, dribble, shot or mark.';
        const ph = clampPh(act.phase);
        incoming[ph] = (incoming[ph] || 0) + 1;
        if ((AI.perPhase[ph] || 0) + incoming[ph] > 8)
@@ -4091,9 +4432,10 @@ const AGENT_TOOLS = [
        }
        const ink = INKS.purple;                            // analyst tactics always render in purple
        const phase = clampPh(act.phase);
-       const seq = act.type === "mark" ? null : (Number.isFinite(+act.seq) ? +act.seq : ++AI.seq);
+       const seqTeam = A.team === "red" || A.team === "blue" ? A.team : "none";
+       const seq = act.type === "mark" ? null : (Number.isFinite(+act.seq) ? +act.seq : ++AI.seqBy[seqTeam]);
        AI.items.push({kind:"shape", type:act.type === "mark" ? "link" : act.type, actType:act.type,
-                      pts:[{x:A.x, y:A.y}, {x:B.x, y:B.y}], seq, phase,
+                      pts:[{x:A.x, y:A.y}, {x:B.x, y:B.y}], seq, phase, seqTeam,
                       moverKey:A.name ? gkey(A.team, A.name) : null,
                       note:String(act.note || "").slice(0, 26), ink});
        AI.perPhase[phase] = (AI.perPhase[phase] || 0) + 1;
@@ -4141,17 +4483,19 @@ const AGENT_TOOLS = [
        const loops = cellUnionLoops(cells);
        const cx = cells.reduce((s, c) => s + (GRID_B[c.i] + GRID_B[c.i+1])/2, 0)/cells.length;
        const cy = cells.reduce((s, c) => s + (GRID_B[c.j] + GRID_B[c.j+1])/2, 0)/cells.length;
-       AI.items.push({kind:"zone", loops, center:{x:cx, y:cy}, label, ink});
+       const zid = "Z" + (AI.items.filter(i => i.kind === "zone").length + 1);
+       AI.items.push({kind:"zone", loops, center:{x:cx, y:cy}, label:(zid + (label ? " · " + label : "")), ink});
        renderAI();
-       return "Highlighted " + cells.length + " cell(s)" + (label ? ' as "' + label + '"' : "") + ".";
+       return "Highlighted " + cells.length + " cell(s) as " + zid + (label ? ' ("' + label + '")' : "") + " — reference it by that id.";
      }
      if (Array.isArray(a.polygon) && a.polygon.length >= 3){
        const pts = a.polygon.slice(0, 12)
          .map(q => ({x:Math.max(0, Math.min(100, +q.x || 0)), y:Math.max(0, Math.min(100, +q.y || 0))}));
        const cx = pts.reduce((s, q) => s + q.x, 0)/pts.length, cy = pts.reduce((s, q) => s + q.y, 0)/pts.length;
-       AI.items.push({kind:"zone", loops:[pts], center:{x:cx, y:cy}, label, ink});
+       const zid = "Z" + (AI.items.filter(i => i.kind === "zone").length + 1);
+       AI.items.push({kind:"zone", loops:[pts], center:{x:cx, y:cy}, label:(zid + (label ? " · " + label : "")), ink});
        renderAI();
-       return "Highlighted a " + pts.length + "-point polygon" + (label ? ' as "' + label + '"' : "") + ".";
+       return "Highlighted a " + pts.length + "-point polygon as " + zid + (label ? ' ("' + label + '")' : "") + " — reference it by that id.";
      }
      return "highlight_zone needs cells:[...] or polygon:[{x,y}, ...].";
    }},
@@ -4513,7 +4857,7 @@ function boardJSON(){
     bench: {red: BENCH.red, blue: BENCH.blue},
     ball: {x:r1(BALL.x), y:r1(BALL.y), owner:BALL.owner, inPossession:BALL.owner !== null},
     drawings: SHAPES.map(sh => ({
-      id:sh.id, type:sh.type, sequence:sh.n, ink:sh.ink, phase:shPhase(sh),
+      id:sh.id, type:sh.type, sequence:sh.n, ink:sh.ink, phase:shPhase(sh), team:sh.team || null,
       points: sh.pts.map(pt => ({x:r1(pt.x), y:r1(pt.y)}))
     })),
     customFormations: CUSTOMS,
@@ -4634,6 +4978,7 @@ function importData(d){
       if (!known || pts.length < 2) continue;
       SHAPES.push({id:"s" + (++shapeSeq), type:sh.type, pts,
                    phase:Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(+sh.phase) || 1)),
+                   team: sh.team === "red" || sh.team === "blue" ? sh.team : null,
                    ink: /^#[0-9a-f]{6}$/i.test(sh.ink || "") ? sh.ink : "#16181b", n:null});
     }
     selIdx = null;
@@ -4655,9 +5000,9 @@ rebuildSelects();
 applyFormation("red",  lastStock.red,  false);
 applyFormation("blue", lastStock.blue, false);
 
-// open on a real match-up rather than blank numbered dots
-sq.red.value  = "Real Madrid";  loadSquad("red",  "Real Madrid", true);
-sq.blue.value = "Barcelona";    loadSquad("blue", "Barcelona",  true);
+// open on the default match-up rather than blank numbered dots
+sq.red.value  = DEFAULT_SQUAD.red;  loadSquad("red",  DEFAULT_SQUAD.red,  true);
+sq.blue.value = DEFAULT_SQUAD.blue; loadSquad("blue", DEFAULT_SQUAD.blue, true);
 
 refreshChip("red"); refreshChip("blue");
 renderBall();

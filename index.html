@@ -350,7 +350,8 @@
   .draw{position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none}
   .capture{position:absolute; inset:0; z-index:50; display:none; cursor:crosshair; touch-action:none}
   body.drawing .capture{display:block}
-  body.drawing .magnet, body.drawing .ball{pointer-events:none}
+  body.drawing .magnet{pointer-events:none}
+  body.drawing .ball{pointer-events:auto; z-index:55}      /* the ball is grabbable anytime */
   body.erasing .capture{cursor:pointer}
   .seq text{font:700 15px var(--body); fill:#fff; text-anchor:middle; dominant-baseline:central}
   body:not(.show-seq) .seq{display:none}
@@ -589,6 +590,7 @@
   .phase-next{width:auto; padding:0 10px; background:#7a2fd0; border-color:#9a55ea; color:#fff; letter-spacing:.05em}
   .phase-next:hover{background:#8b43de}
   .phase-play{width:auto; padding:0 8px; color:#c9a4f5}
+  .playlog[hidden]{display:none}
   .playlog{
     display:grid; grid-template-columns:1fr 1fr; gap:4px 20px; margin-top:12px;
     background:#1b1e22; border:1px solid #34383e; border-radius:14px;
@@ -780,7 +782,7 @@
     <span class="tool-sep" aria-hidden="true"></span>
     <span class="ink-wrap">
       <button class="ink-btn" id="inkBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Ink colour">
-        <i id="inkChip" style="background:#16181b"></i><span class="ink-caret">&#9662;</span>
+        <i id="inkChip" style="background:#7a2fd0"></i><span class="ink-caret">&#9662;</span>
       </button>
       <div class="ink-menu" id="inkMenu" hidden role="menu" aria-label="Ink colours"></div>
     </span>
@@ -1764,7 +1766,7 @@ const drawSvg = $("draw"), capLayer = $("capture");
 const SHAPES = [];                                         // {id,type,pts:[{x,y}],ink}
 const ARROWED = new Set(["run","pass","dribble","shot","lob"]);
 const CURVABLE = new Set(["run","pass","dribble","shot","link"]);
-let tool = "none", ink = "#16181b", shapeSeq = 0, drawing = null, curveOn = false;
+let tool = "none", ink = "#7a2fd0", shapeSeq = 0, drawing = null, curveOn = false;   // purple by default
 let userPhase = 1;                                         // the phase you draw into AND view
 const MAX_USER_PHASE = 9;
 const shPhase = s => Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(+s.phase) || 1));
@@ -1954,7 +1956,7 @@ function renderPlaylog(){
   if (!box) return;
   const acts = SHAPES.filter(sh => sh.type !== "zone" && sh.type !== "line");
   box.hidden = !acts.length;
-  if (!acts.length) return;
+  if (!acts.length){ $("plRed").innerHTML = ""; $("plBlue").innerHTML = ""; return; }
   const b = boardJSON();
   $("plHdRed").textContent  = b.teams?.red?.squad  || "Red";
   $("plHdBlue").textContent = b.teams?.blue?.squad || "Blue";
@@ -2482,7 +2484,8 @@ $("clearBtn").addEventListener("click", () => {
   if (!SHAPES.length){ say("Nothing to clear"); return; }
   SHAPES.length = 0;
   selIdx = null;
-  renderShapes();
+  hlId = null;
+  setUserPhase(1, false);                                  // re-renders shapes and the play-by-play
   say("Drawings cleared");
 });
 
@@ -3486,6 +3489,7 @@ function giveBall(id){
     Object.assign(BALL, toPitch({x:clampB(b.x), y:clampB(b.y)}));
   }
   renderBall();
+  try { renderShapes(); renderAI(); } catch (e) {}         // possession chain may have moved
 }
 
 function paintBallBtn(){
@@ -4979,7 +4983,7 @@ function importData(d){
       SHAPES.push({id:"s" + (++shapeSeq), type:sh.type, pts,
                    phase:Math.max(1, Math.min(MAX_USER_PHASE, Math.floor(+sh.phase) || 1)),
                    team: sh.team === "red" || sh.team === "blue" ? sh.team : null,
-                   ink: /^#[0-9a-f]{6}$/i.test(sh.ink || "") ? sh.ink : "#16181b", n:null});
+                   ink: /^#[0-9a-f]{6}$/i.test(sh.ink || "") ? sh.ink : "#7a2fd0", n:null});
     }
     selIdx = null;
     renumber(); renderShapes();

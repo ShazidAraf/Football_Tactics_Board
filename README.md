@@ -74,7 +74,8 @@ An in-app AI analyst (Claude, bring your own API key) that answers tactical ques
 
 ## License
 
-**All rights reserved.** This project may not be shared, re-uploaded, re-hosted, or reused. See [LICENSE](LICENSE).
+**All rights reserved.** This project may not be shared, re-uploaded, re-hosted, or reused. Only can be used with the author's hosting.
+See [LICENSE](LICENSE).
 
 ---
 

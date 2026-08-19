@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Football Tactics Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23d6342c'/><circle cx='36' cy='34' r='14' fill='white' opacity='.75'/></svg>">
 <style>
   :root{
@@ -680,6 +682,269 @@
   @media (prefers-reduced-motion:reduce){
     *{transition:none !important}
   }
+</style>
+
+<style id="redesign">
+/* ── v2 redesign: warm dark shell, lime accent, tabbed layout ── */
+:root{
+  --coal:#211d18; --coal-edge:#2b2620; --chalk:#f0ece4; --muted:#a39c8f;
+  --gk:#b8e34d;
+  --body:'Manrope',-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+body{
+  background: radial-gradient(120% 90% at 50% -25%, #342e26, transparent 62%), #1a1713;
+  flex-wrap:wrap; align-content:flex-start; padding:0 14px 30px;
+}
+.rail,.chat,.panel{
+  background:var(--coal-edge); border:1px solid #3b342a;
+  box-shadow:0 12px 28px rgba(0,0,0,.4);
+}
+.chat-hd,.panel-hd{border-bottom-color:#3b342a}
+.chat-in,.chat-log + .chips{border-top-color:#3b342a}
+.tools{background:#171411; border:1px solid #332d24}
+.tool{background:#100e0b; border-color:#332d24}
+.chip{background:#100e0b; border-color:#332d24}
+.frame{
+  padding:10px; border-radius:18px;
+  background:#2b2620; border:1px solid #3b342a;
+  box-shadow:0 26px 54px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
+}
+select{background-color:#171411; border-color:#3b342a}
+.chat-in textarea,.pop input,.scen-form input,.insp-meta input,.attr-hd input,.chat-key input{background:#100e0b; border-color:#3b342a}
+.btn.export{
+  background:var(--gk); color:#1b2405; border-color:#7ea22e;
+  box-shadow:0 3px 0 #5d7a1f, 0 8px 14px rgba(0,0,0,.35);
+}
+.btn.export:active{box-shadow:0 1px 0 #5d7a1f}
+.ai-keep{background:var(--gk); border-color:#7ea22e; color:#1b2405}
+.hint{color:#cfc8ba; text-shadow:none}
+.insp{background:#211d18; border-left-color:#3b342a}
+.sheet{background:#211d18}
+.show-pop,.pop,.ink-menu{background:#171411; border-color:#3b342a}
+.scen-row,.bench-row{background:#100e0b; border-color:#332d24}
+.playlog{background:#211d18; border-color:#3b342a}
+.toast{background:#171411; border-color:#3b342a}
+.msg.you{background:#332d24}
+/* chat: give Q&A real shape */
+.chat-log{gap:14px; padding:16px 14px}
+.msg.you{
+  background:var(--gk); color:#1b2405; font-weight:600;
+  border-radius:14px 14px 4px 14px; padding:10px 13px;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
+}
+.msg.bot{
+  align-self:flex-start; max-width:94%;
+  background:#171411; border:1px solid #332d24;
+  border-radius:4px 14px 14px 14px; padding:11px 13px; color:#e6e1d6;
+}
+.msg.bot::before{
+  content:"ANALYST"; display:block;
+  font:800 9px/1 var(--body); letter-spacing:.18em; color:var(--gk);
+  margin-bottom:6px;
+}
+.msg.sys{align-self:center; text-align:center}
+.chip{padding:8px 12px; color:#c9c2b4}
+.chip:hover{border-color:var(--gk); color:var(--gk)}
+.chat-in textarea{border-radius:12px}
+
+/* ── tab bar ── */
+.tabbar{
+  flex:1 1 100%; display:flex; align-items:center; gap:20px;
+  max-width:1526px; margin:0 auto; width:100%;
+  padding:16px 4px 18px;
+}
+.tb-brand{display:flex; align-items:center; gap:10px; font:800 15px/1 var(--body); color:var(--chalk); letter-spacing:.02em}
+.tb-brand i{
+  width:28px; height:28px; border-radius:8px; background:var(--gk);
+  display:grid; place-items:center; color:#1b2405; font:800 11px/1 var(--body); font-style:normal;
+}
+.tb-tabs{display:flex; gap:4px; background:#171411; border:1px solid #332d24; padding:4px; border-radius:11px}
+.tb{border:none; cursor:pointer; border-radius:8px; padding:9px 17px; font:700 13px/1 var(--body); background:transparent; color:var(--muted); letter-spacing:.02em}
+.tb.on{background:var(--gk); color:#1b2405}
+.tb:hover:not(.on){color:var(--chalk)}
+
+/* ── tab visibility ── */
+body.tab-chat #heatPanel, body.tab-chat #plotPanel{display:none !important}
+/* chat column ends level with the board's bottom edge (height set by script) */
+body.tab-chat .chat{align-self:flex-start; max-height:none; min-height:0}
+body.tab-board .chat{display:none}
+body.tab-board #heatPanel, body.tab-board #plotPanel{display:none !important}
+body.tab-heat .rail, body.tab-heat .tools, body.tab-heat .frame,
+body.tab-heat .playlog, body.tab-heat .hint, body.tab-heat .chat,
+body.tab-heat #plotPanel{display:none !important}
+body.tab-heat #heatPanel{display:block !important}
+body.tab-heat #heatClose{display:none}
+body.tab-plot .rail, body.tab-plot .tools, body.tab-plot .frame,
+body.tab-plot .playlog, body.tab-plot .hint, body.tab-plot .chat,
+body.tab-plot #heatPanel{display:none !important}
+body.tab-plot #plotPanel{display:block !important}
+body.tab-plot #plotClose{display:none}
+body.tab-plot .stage{max-width:920px}
+@media (max-width:1240px){ .tabbar{width:min(1180px,96vw)} }
+
+/* ── field: real turf instead of the whiteboard ── */
+.frame{padding:8px; border-radius:20px; background:#221e19; border-color:#3b342a}
+.board{
+  background:
+    radial-gradient(140% 90% at 50% 0%, rgba(255,255,255,.09), transparent 55%),
+    repeating-linear-gradient(90deg, var(--turf1,#3e7c44) 0 10%, var(--turf2,#366f3c) 10% 20%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4), inset 0 2px 26px rgba(0,0,0,.3);
+  border-radius:12px;
+}
+.board::after{background:radial-gradient(130% 95% at 18% -8%, rgba(255,255,255,.12), transparent 46%)}
+.pitch g{stroke:rgba(255,255,255,.9)}
+.pitch g [fill="#16181b"]{fill:rgba(255,255,255,.9)}
+
+/* magnets: classic glossy discs with a white rim */
+.magnet::before{
+  background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.38), rgba(255,255,255,0) 48%), var(--c);
+  box-shadow:0 3px 7px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.7), inset 0 -3px 6px rgba(0,0,0,.22);
+}
+.magnet .n{text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.magnet.drag::before{box-shadow:0 9px 18px rgba(0,0,0,.42), inset 0 0 0 2px rgba(255,255,255,.8)}
+.magnet.has-ball::before{box-shadow:0 0 0 2.5px #ffd21e, 0 0 0 4px rgba(0,0,0,.35), 0 3px 7px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.7)}
+.magnet .nm{background:rgba(16,14,11,.78); color:#f0ece4}
+
+/* tools: roomier icon-over-label chips */
+.tools{padding:10px 12px; gap:8px; border-radius:14px}
+.tool[data-tool]{
+  flex-direction:column; justify-content:center; gap:5px;
+  min-width:58px; padding:8px 7px 7px;
+  font-size:9.5px; letter-spacing:.08em; border-radius:10px;
+  transition:transform .12s, border-color .12s, color .12s;
+}
+.tool[data-tool] svg{transform:scale(1.15)}
+.tool[data-tool]:hover{transform:translateY(-1px)}
+.tool.on{box-shadow:0 3px 0 #5d7a1f}
+.tool-sep{height:36px}
+#undoBtn,#clearBtn{padding:9px 12px; border-radius:10px}
+
+/* phase stepper lives in the top rail */
+.rail .phase-seg{
+  background:#171411; border:1px solid #332d24; border-radius:10px; padding:5px 7px; gap:6px;
+}
+.rail .phase-lbl{min-width:0}
+.rail .phase-play{
+  background:var(--gk); border-color:#7ea22e; color:#1b2405;
+  font:800 11px/1 var(--body); letter-spacing:.05em; padding:0 12px;
+}
+.rail .phase-play:hover{filter:brightness(1.07); background:var(--gk)}
+
+/* colour pickers */
+/* ── top rail redesign ── */
+.rail{gap:10px 12px; padding:12px 14px}
+.team > label{display:none}
+.team{background:#171411; border:1px solid #332d24; border-radius:11px; padding:6px 9px; gap:8px}
+.team select{background-color:transparent; border:none; min-width:0; padding:6px 26px 6px 6px; font-size:13px}
+.dot{width:16px; height:16px; box-shadow:0 1px 2px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.25)}
+#importBtn{
+  background:#7a2fd0; border-color:#9a55ea; color:#fff;
+  box-shadow:0 3px 0 #58218f, 0 8px 14px rgba(0,0,0,.35);
+}
+#importBtn:hover{filter:brightness(1.1); background:#7a2fd0}
+#importBtn:active{transform:translateY(2px); box-shadow:0 1px 0 #58218f}
+#resetBtn,#showBtn{border-color:#332d24; background:#171411}
+#importBtn{display:inline-flex; align-items:center; gap:8px}
+
+/* scenario sheet: grouped, two columns */
+.sheet{width:min(720px,96vw)}
+.scen-list{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.scen-grp{
+  grid-column:1/-1; margin:10px 0 0;
+  font:800 10.5px/1 var(--body); letter-spacing:.15em; text-transform:uppercase; color:var(--gk);
+}
+.scen-grp:first-child{margin-top:0}
+@media (max-width:640px){ .scen-list{grid-template-columns:1fr} }
+
+/* ── extra tab pages ── */
+.page{display:none; border-radius:14px; border:1px solid #3b342a; background:var(--coal-edge); padding:20px; box-shadow:0 12px 28px rgba(0,0,0,.4)}
+.page h2{margin:0 0 4px; font:800 17px/1.2 var(--body); color:var(--chalk)}
+.page .sub{margin:0 0 16px; font:500 12.5px/1.5 var(--body); color:var(--muted)}
+.pg-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px}
+.pg-card{background:#171411; border:1px solid #332d24; border-radius:12px; padding:13px; display:flex; flex-direction:column}
+.pg-card h4{margin:0 0 4px; font:700 13.5px/1.3 var(--body); color:var(--chalk)}
+.pg-card p{margin:0 0 10px; font:500 11.5px/1.5 var(--body); color:var(--muted); flex:1}
+.pg-card .pick{display:flex; gap:6px}
+.pg-cols{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+@media (max-width:760px){ .pg-cols{grid-template-columns:1fr} }
+.sq-col{display:flex; flex-direction:column; gap:6px}
+.sq-col h3{margin:0 0 6px; display:flex; align-items:center; gap:8px; font:800 12px/1 var(--body); letter-spacing:.1em; color:var(--chalk)}
+.sq-col h3 i{width:11px; height:11px; border-radius:50%}
+.sq-row{display:flex; align-items:center; gap:10px; width:100%; text-align:left; cursor:pointer; background:#171411; border:1px solid #332d24; border-radius:10px; padding:8px 10px; color:var(--chalk); font:600 13px/1.3 var(--body)}
+.sq-row:hover{border-color:var(--gk)}
+.sq-num{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; color:#fff; font:800 11px/1 var(--body); flex:none}
+.sq-pos{font:700 10px/1 var(--body); letter-spacing:.08em; color:var(--muted); width:34px; flex:none}
+.sq-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sq-ovr{font:800 13px/1 var(--body); color:var(--gk)}
+.unit-seg{display:flex; gap:4px; background:#171411; border:1px solid #332d24; padding:4px; border-radius:10px; width:max-content}
+.unit-seg button{border:none; cursor:pointer; border-radius:7px; padding:8px 14px; font:700 12px/1 var(--body); background:transparent; color:var(--muted)}
+.unit-seg button.on{background:var(--gk); color:#1b2405}
+#heatLock{border:1px solid #3b342a}
+#heatLock.on{background:var(--gk); color:#1b2405; border-color:#7ea22e}
+/* per-tab visibility */
+body.tab-squads .rail, body.tab-squads .tools, body.tab-squads .frame, body.tab-squads .playlog, body.tab-squads .hint, body.tab-squads .chat, body.tab-squads #heatPanel, body.tab-squads #plotPanel,
+body.tab-playbook .rail, body.tab-playbook .tools, body.tab-playbook .frame, body.tab-playbook .playlog, body.tab-playbook .hint, body.tab-playbook .chat, body.tab-playbook #heatPanel, body.tab-playbook #plotPanel,
+body.tab-setpiece .rail, body.tab-setpiece .tools, body.tab-setpiece .frame, body.tab-setpiece .playlog, body.tab-setpiece .hint, body.tab-setpiece .chat, body.tab-setpiece #heatPanel, body.tab-setpiece #plotPanel,
+body.tab-compare .rail, body.tab-compare .tools, body.tab-compare .frame, body.tab-compare .playlog, body.tab-compare .hint,
+body.tab-present .rail, body.tab-present .tools, body.tab-present .playlog, body.tab-present .hint, body.tab-present .chat, body.tab-present #heatPanel, body.tab-present #plotPanel{display:none !important}
+body.tab-squads .stage, body.tab-playbook .stage, body.tab-setpiece .stage, body.tab-compare .stage{display:flex; flex-direction:column; max-width:1180px}
+body.tab-present .stage{display:flex; flex-direction:column; max-width:1391px}
+body.tab-present .frame{width:100%}
+body.tab-squads #squadPage, body.tab-playbook #playbookPage, body.tab-setpiece #setpiecePage, body.tab-compare #comparePage{display:block}
+body.tab-compare #plotPanel{display:none !important}
+body.tab-present #presentHint{display:block}
+.team .dot{cursor:pointer}
+.clr-wrap{position:relative; display:inline-flex}
+.clr-menu{
+  position:absolute; top:calc(100% + 8px); left:0; z-index:96;
+  display:grid; grid-template-columns:repeat(4, 26px); gap:6px; padding:8px;
+  background:#1d1a15; border:1px solid #3b342a; border-radius:11px;
+  box-shadow:0 12px 26px rgba(0,0,0,.5);
+}
+.clr-menu[hidden]{display:none}
+.clr-menu button{width:26px; height:26px; border-radius:7px; cursor:pointer; border:2px solid transparent; padding:0}
+.clr-menu button:hover{transform:scale(1.12)}
+.field-chip{
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  font:700 11px/1 var(--body); letter-spacing:.06em; color:var(--muted);
+  background:#171411; border:1px solid #332d24; border-radius:9px; padding:8px 10px;
+}
+.field-chip:hover{color:var(--chalk); border-color:#5b5344}
+.field-chip i{width:14px; height:14px; border-radius:4px; background:repeating-linear-gradient(90deg, var(--turf1,#3e7c44) 0 4px, var(--turf2,#366f3c) 4px 8px)}
+
+/* ── left tool column ── */
+@media (min-width:901px){
+  .stage{
+    display:grid; grid-template-columns:96px minmax(0,1fr); gap:14px; align-items:start;
+    grid-template-areas:"rail rail" "tools frame" "tools heatp" "tools plotp" "tools plog" "tools hint";
+  }
+  .rail{grid-area:rail}
+  .frame{grid-area:frame}
+  #heatPanel{grid-area:heatp}
+  #plotPanel{grid-area:plotp}
+  .playlog{grid-area:plog}
+  .hint{grid-area:hint}
+  body.tab-plot .stage{display:flex; flex-direction:column}
+  body.tab-heat #heatPanel{grid-area:frame}
+  /* heatmap sits exactly where the board sits: same frame, same padding, no chrome */
+  body.tab-heat #heatPanel{background:#221e19; border-radius:20px; padding:8px; border:1px solid #3b342a}
+  body.tab-heat #heatPanel .panel-hd{display:none}
+  body.tab-heat #heatPanel .panel-body{padding:0}
+  body.tab-heat #heatSvg{border-radius:12px}
+  body.tab-heat .heat-legend{margin:10px 10px 4px}
+  body.tab-heat #heatCap{margin:4px 10px 8px}
+  .tools{
+    grid-area:tools; flex-direction:column; align-items:stretch; gap:7px;
+    padding:10px 8px; position:sticky; top:12px;
+  }
+  .tool[data-tool]{min-width:0; width:100%}
+  .tools .tool-sep{width:auto; height:1px; margin:2px 2px}
+  .tools .spacer{display:none}
+  .ink-wrap{align-self:center}
+  .ink-menu{left:calc(100% + 10px); top:-4px}
+  .tools .switch{padding:2px 3px}
+  #undoBtn,#clearBtn{width:100%}
+}
 </style>
 </head>
 <body>
@@ -1579,7 +1844,7 @@ function paintHeader(){
   badge.textContent = current.n;
   $("inspWho").textContent = current.name || current.label || "Player";
   const idx = +current.id.split("-")[1];
-  $("inspSub").textContent = `${current.team} · ${current.label || "—"} · ${idx} of 11`;
+  $("inspSub").textContent = `${typeof teamLabel === "function" ? teamLabel(current.team) : current.team} · ${current.label || "—"} · ${idx} of 11`;
   $("inspName").value = current.name;
   $("inspNum").value = current.n;
   $("inspRole").value = current.label;
@@ -1695,7 +1960,7 @@ $("inspRole").addEventListener("input", e => {
   e.target.value = current.label;
   $("inspWho").textContent = current.name || current.label || "Player";
   const idx = +current.id.split("-")[1];
-  $("inspSub").textContent = `${current.team} · ${current.label || "—"} · ${idx} of 11`;
+  $("inspSub").textContent = `${typeof teamLabel === "function" ? teamLabel(current.team) : current.team} · ${current.label || "—"} · ${idx} of 11`;
   render(current);
 });
 
@@ -2774,8 +3039,28 @@ function renderScenarios(){
   const list = $("scenList");
   list.innerHTML = "";
   const all = allScenarios();
+  const GROUPS = [
+    ["Out of possession", ["Low block","Mid block","Park the bus","Offside trap"]],
+    ["Pressing", ["High press","Gegenpress","Suffocating press"]],
+    ["In possession", ["Build-up from the back","Counter-attack","Ultra attack","Wide overload","Positional attack (3-2-5)","Long goal-kick battle"]],
+    ["Set pieces", ["Defending a corner","Attacking a corner"]],
+  ];
+  const placed = new Set(GROUPS.flatMap(g => g[1]));
+  const extras = Object.keys(all).filter(k => !placed.has(k));
+  if (extras.length) GROUPS.push(["My scenarios", extras]);
+  const ordered = GROUPS.flatMap(([grp, keys]) => {
+    const rows = keys.filter(k => all[k]).map(k => [k, all[k]]);
+    return rows.length ? [[null, grp], ...rows] : [];
+  });
 
-  for (const [name, sc] of Object.entries(all)){
+  for (const [name, sc] of ordered){
+    if (name === null){
+      const h = document.createElement("li");
+      h.className = "scen-grp";
+      h.textContent = sc;
+      list.appendChild(h);
+      continue;
+    }
     const li = document.createElement("li");
     const row = document.createElement("div");
     row.className = "scen-row";
@@ -2789,8 +3074,7 @@ function renderScenarios(){
       const b = document.createElement("button");
       b.type = "button";
       b.className = `team-btn ${team}`;
-      b.textContent = team.toUpperCase();
-      b.title = `Show "${name}" with the ${team} team`;
+      b.textContent = (typeof teamLabel === "function" ? teamLabel(team) : team).toUpperCase();
       b.addEventListener("click", () => applyScenario(name, team));
       pick.appendChild(b);
     }
@@ -3169,17 +3453,17 @@ $("phasePrev").addEventListener("click", () => setUserPhase(userPhase - 1));
 
 let userPlayTimer = null;
 $("userPlay").addEventListener("click", () => {
-  if (userPlayTimer){ clearTimeout(userPlayTimer); userPlayTimer = null; $("userPlay").innerHTML = "&#9654;"; return; }
-  const max = userMaxPhase();
-  if (max < 2){ say("Draw a picture, press NEXT PHASE, draw the next one — then play it"); return; }
-  $("userPlay").innerHTML = "&#9208;";
+  if (userPlayTimer){ clearTimeout(userPlayTimer); userPlayTimer = null; $("userPlay").innerHTML = "&#9654; PLAY"; return; }
+  const max = Math.min(userMaxPhase() + 1, MAX_USER_PHASE);   // one past the last drawn phase, so its moves execute too
+  if (!SHAPES.length){ say("Draw a picture, press NEXT PHASE, draw the next one — then play it"); return; }
+  $("userPlay").innerHTML = "&#9208; STOP";
   const tick = () => {
     if (userPhase < max){
       setUserPhase(userPhase + 1);
       userPlayTimer = setTimeout(tick, 1600);
     } else {
       userPlayTimer = null;
-      $("userPlay").innerHTML = "&#9654;";
+      $("userPlay").innerHTML = "&#9654; PLAY";
     }
   };
   if (userPhase >= max) setUserPhase(1, false);
@@ -5010,6 +5294,604 @@ sq.blue.value = DEFAULT_SQUAD.blue; loadSquad("blue", DEFAULT_SQUAD.blue, true);
 
 refreshChip("red"); refreshChip("blue");
 renderBall();
+</script>
+
+<script>
+(function(){
+  const bar = document.createElement('nav');
+  bar.className = 'tabbar';
+  bar.innerHTML = '<span class="tb-brand"><i>TB</i>Football Tactics Board</span>'
+    + '<span class="tb-tabs">'
+    + '<button class="tb on" type="button" data-tab="chat">Home</button>'
+    + '<button class="tb" type="button" data-tab="squads">Squads</button>'
+    + '<button class="tb" type="button" data-tab="compare">Analysis</button>'
+    + '<button class="tb" type="button" data-tab="heat">Heatmap</button>'
+    + '</span>';
+  document.body.prepend(bar);
+  window.teamLabel = function(t){ try { return (sq[t].value || t); } catch(e){ return t; } };
+  document.body.classList.add('tab-chat');
+  var seg = document.querySelector('.tools .phase-seg');
+  var rail = document.querySelector('.rail');
+  if (seg && rail) rail.insertBefore(seg, rail.querySelector('.show-wrap'));
+  // chat bottom aligns with the board frame's bottom edge
+  var chatEl = document.querySelector('.chat'), frameEl = document.querySelector('.frame'), stageEl = document.querySelector('.stage');
+  function sizeChat(){
+    if (!chatEl || !frameEl || !stageEl) return;
+    if (!document.body.classList.contains('tab-chat') || window.innerWidth <= 1240){ chatEl.style.height = ''; return; }
+    var h = frameEl.getBoundingClientRect().bottom - stageEl.getBoundingClientRect().top;
+    if (h > 320) chatEl.style.height = h + 'px';
+  }
+  if (window.ResizeObserver && frameEl) new ResizeObserver(sizeChat).observe(frameEl);
+  window.addEventListener('resize', sizeChat);
+  setTimeout(sizeChat, 50);
+  bar.addEventListener('click', function(){ setTimeout(sizeChat, 50); });
+  var up = document.getElementById('userPlay');
+  if (up) up.innerHTML = '&#9654; PLAY';
+  // import/export side by side, both with an icon
+  var impB = document.getElementById('importBtn'), rstB = document.getElementById('resetBtn');
+  if (impB && rstB) impB.parentNode.insertBefore(rstB, impB);
+  if (impB) impB.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 13V5m0 0L3.6 8.4M7 5l3.4 3.4M1.5 1.5h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Import';
+  // colour pickers: click a team dot to recolour the team; field chip for turf
+  function swatchMenu(anchor, colors, apply){
+    var wrap = document.createElement('span');
+    wrap.className = 'clr-wrap';
+    anchor.parentNode.insertBefore(wrap, anchor);
+    wrap.appendChild(anchor);
+    var menu = document.createElement('div');
+    menu.className = 'clr-menu'; menu.hidden = true;
+    colors.forEach(function(c){
+      var b = document.createElement('button'); b.type = 'button';
+      b.style.background = Array.isArray(c) ? 'repeating-linear-gradient(90deg,' + c[0] + ' 0 4px,' + c[1] + ' 4px 8px)' : c;
+      b.addEventListener('click', function(){ apply(c); menu.hidden = true; });
+      menu.appendChild(b);
+    });
+    wrap.appendChild(menu);
+    anchor.addEventListener('click', function(e){ e.stopPropagation(); menu.hidden = !menu.hidden; });
+    document.addEventListener('click', function(){ menu.hidden = true; });
+  }
+  var rootStyle = document.documentElement.style;
+  var teamCols = ['#d63a2f','#ff7a1a','#f2c21f','#1f9d55','#12a5a5','#2a5bd0','#7a2fd0','#ff5ca8','#ffffff','#16181b'];
+  var dotR = document.querySelector('#teamRed .dot');
+  var dotB = document.querySelector('#teamBlue .dot');
+  if (dotR) swatchMenu(dotR, teamCols, function(c){ rootStyle.setProperty('--red', c); });
+  if (dotB) swatchMenu(dotB, teamCols, function(c){ rootStyle.setProperty('--blue', c); });
+  var turfs = [['#3e7c44','#366f3c'], ['#2f6f63','#29604f'], ['#23272e','#1d2127'], ['#3d4f8a','#354577']];
+  var chip = document.createElement('span');
+  chip.className = 'field-chip'; chip.innerHTML = '<i></i>FIELD';
+  var sp = rail.querySelector('.spacer');
+  if (sp) rail.insertBefore(chip, sp);
+  swatchMenu(chip, turfs, function(c){ rootStyle.setProperty('--turf1', c[0]); rootStyle.setProperty('--turf2', c[1]); });
+  // ── extra tab pages ──
+  var pages = {
+    squadPage:'<h2>Squads</h2><p class="sub">Click a player to edit his name, ratings, face — or make a substitution.</p><div class="pg-cols" id="sqCols"></div>',
+    comparePage:'<h2>Analysis</h2><p class="sub">Three live reads of the board — set them here, or just ask the analyst (“compare the midfields”, “radar Pedri vs Bellingham”).</p>'
+      + '<div class="pg-cols" style="gap:12px">'
+      + '<div class="pg-card" style="grid-column:1/-1"><h4>Team comparison</h4><span class="unit-seg" id="unitSeg" style="margin:4px 0 10px"><button type="button" class="on" data-u="">Full XI</button><button type="button" data-u="defence">Defence</button><button type="button" data-u="midfield">Midfield</button><button type="button" data-u="attack">Attack</button></span><svg id="anaBars" viewBox="0 0 640 360" style="width:100%;max-width:820px;background:#100e0b;border-radius:9px"></svg><p id="anaBarsCap"></p></div>'
+      + '<div class="pg-card"><h4>Player radar</h4><div style="display:flex;gap:8px;margin:4px 0 10px"><select id="radA" style="flex:1;min-width:0"></select><select id="radB" style="flex:1;min-width:0"></select></div><svg id="anaRadar" viewBox="0 0 640 560" style="width:100%;background:#100e0b;border-radius:9px"></svg><p id="anaRadarCap"></p></div>'
+      + '<div class="pg-card"><h4>Scatter — Y vs X</h4><div style="display:flex;gap:8px;margin:4px 0 10px"><select id="scX" style="flex:1;min-width:0"></select><select id="scY" style="flex:1;min-width:0"></select></div><svg id="anaScat" viewBox="0 0 640 560" style="width:100%;background:#100e0b;border-radius:9px"></svg><p id="anaScatCap"></p></div>'
+      + '</div>'
+  };
+  Object.keys(pages).forEach(function(id){
+    var s = document.createElement('section');
+    s.className = 'page'; s.id = id; s.innerHTML = pages[id];
+    stageEl.appendChild(s);
+  });
+
+  function pickBtns(fn){
+    var s = document.createElement('span'); s.className = 'pick';
+    ['red','blue'].forEach(function(t){
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'team-btn ' + t; b.textContent = teamLabel(t).toUpperCase();
+      b.addEventListener('click', function(){ fn(t); selectTab('chat'); });
+      s.appendChild(b);
+    });
+    return s;
+  }
+  function renderSquads(){
+    var box = document.getElementById('sqCols'); box.innerHTML = '';
+    ['red','blue'].forEach(function(team){
+      var col = document.createElement('div'); col.className = 'sq-col';
+      var shape = sel[team].value === 'custom' ? 'CUSTOM SHAPE' : sel[team].value;
+      col.innerHTML = '<h3><i style="background:var(--' + team + ')"></i>' + teamLabel(team).toUpperCase() + ' · ' + shape + '</h3>';
+      var list = Array.from(players.values()).filter(function(p){ return p.team === team; }).sort(function(a,b){ return a.n - b.n; });
+      list.forEach(function(p){
+        var r = document.createElement('button'); r.type = 'button'; r.className = 'sq-row';
+        r.innerHTML = '<span class="sq-num" style="background:var(--' + team + ')">' + p.n + '</span><span class="sq-pos"></span><span class="sq-name"></span><span class="sq-ovr">' + overall(p.ratings || {}) + '</span>';
+        r.querySelector('.sq-pos').textContent = p.role || '';
+        r.querySelector('.sq-name').textContent = p.name || 'Player ' + p.n;
+        r.addEventListener('click', function(){ openInspector(p.id); });
+        col.appendChild(r);
+      });
+      box.appendChild(col);
+    });
+  }
+  var SP_NOTES_UNUSED = null;
+  function renderSetpieces(){
+    return;
+  }
+  function renderSetpiecesOld(){
+    var box = document.getElementById('spBody'); box.innerHTML = '';
+    Object.keys(SP_NOTES).forEach(function(name){
+      var sc = allScenarios()[name]; if (!sc) return;
+      var c = document.createElement('div'); c.className = 'pg-card';
+      c.innerHTML = '<h4></h4><p></p><ul style="margin:0 0 12px;padding-left:16px;color:var(--muted);font:500 11.5px/1.6 var(--body)">'
+        + SP_NOTES[name].map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>';
+      c.querySelector('h4').textContent = name;
+      c.querySelector('p').textContent = sc.desc || '';
+      c.appendChild(pickBtns(function(t){ applyScenario(name, t); }));
+      box.appendChild(c);
+    });
+  }
+  // mirror every analyst-drawn chart into the Analysis cards
+  var origDoPlot = doPlot;
+  doPlot = function(spec, board){
+    var out = origDoPlot(spec, board);
+    try {
+      var src = document.getElementById('plotSvg');
+      var isRadar = spec && spec.kind === 'radar';
+      var dst = document.getElementById(isRadar ? 'anaRadar' : 'anaBars');
+      if (dst){
+        dst.setAttribute('viewBox', src.getAttribute('viewBox'));
+        dst.innerHTML = src.innerHTML;
+        document.getElementById(isRadar ? 'anaRadarCap' : 'anaBarsCap').textContent = document.getElementById('plotCap').textContent;
+        if (isRadar && spec.players){
+          var ra0 = document.getElementById('radA'), rb0 = document.getElementById('radB');
+          if (ra0 && spec.players[0]) ra0.value = spec.players[0];
+          if (rb0 && spec.players[1]) rb0.value = spec.players[1];
+        }
+      }
+      if (document.body.classList.contains('tab-compare')) document.getElementById('plotPanel').hidden = true;
+    } catch(e){ console.warn(e); }
+    return out;
+  };
+  function namedPlayers(board){
+    var out = [];
+    ['red','blue'].forEach(function(t){ (board.teams[t].players || []).forEach(function(p){ if (p.name) out.push(p); }); });
+    return out;
+  }
+  function fillSelect(selEl, opts, keep){
+    var prev = keep ? selEl.value : '';
+    selEl.innerHTML = '';
+    opts.forEach(function(o){ selEl.add(new Option(o[1], o[0])); });
+    if (prev && [].some.call(selEl.options, function(x){ return x.value === prev; })) selEl.value = prev;
+  }
+  function renderRadar(){
+    var a = document.getElementById('radA').value, b = document.getElementById('radB').value;
+    if (a && b && a !== b) doPlot({kind:'radar', players:[a, b]}, boardJSON());
+  }
+  function renderScatter(){
+    var board = boardJSON();
+    var kx = document.getElementById('scX').value, ky = document.getElementById('scY').value;
+    var css = getComputedStyle(document.documentElement);
+    var cols = {red:css.getPropertyValue('--red').trim() || '#d63a2f', blue:css.getPropertyValue('--blue').trim() || '#2a5bd0'};
+    var lab = {}; ATTRS.forEach(function(at){ lab[at.k] = at.label; });
+    var x0 = 70, y0 = 30, W = 540, H = 460, base = y0 + H;
+    var out = '';
+    [0,25,50,75,100].forEach(function(v){
+      var gx = x0 + W*v/100, gy = base - H*v/100;
+      out += '<line x1="' + gx + '" y1="' + y0 + '" x2="' + gx + '" y2="' + base + '" stroke="#26292d"/>'
+           + '<line x1="' + x0 + '" y1="' + gy + '" x2="' + (x0 + W) + '" y2="' + gy + '" stroke="#26292d"/>'
+           + '<text x="' + gx + '" y="' + (base + 18) + '" fill="#6c7278" font-family="Manrope,system-ui" font-size="11" text-anchor="middle">' + v + '</text>'
+           + '<text x="' + (x0 - 8) + '" y="' + (gy + 4) + '" fill="#6c7278" font-family="Manrope,system-ui" font-size="11" text-anchor="end">' + v + '</text>';
+    });
+    out += '<text x="' + (x0 + W/2) + '" y="' + (base + 38) + '" fill="#9aa1a8" font-family="Manrope,system-ui" font-size="13" font-weight="700" text-anchor="middle">' + lab[kx] + '</text>';
+    out += '<text x="16" y="' + (y0 + H/2) + '" fill="#9aa1a8" font-family="Manrope,system-ui" font-size="13" font-weight="700" text-anchor="middle" transform="rotate(-90 16 ' + (y0 + H/2) + ')">' + lab[ky] + '</text>';
+    ['red','blue'].forEach(function(t){
+      (board.teams[t].players || []).forEach(function(p){
+        var rt = p.ratings || {};
+        var px = x0 + W*((+rt[kx] || 50)/100), py = base - H*((+rt[ky] || 50)/100);
+        out += '<g><circle cx="' + px + '" cy="' + py + '" r="11" fill="' + cols[t] + '" fill-opacity=".85" stroke="#fff" stroke-width="1.5"/>'
+             + '<text x="' + px + '" y="' + (py + 3.5) + '" fill="#fff" font-family="Manrope,system-ui" font-size="10" font-weight="800" text-anchor="middle">' + p.number + '</text>'
+             + '<title>' + String(p.name || '#' + p.number).replace(/</g, '&lt;') + '</title></g>';
+      });
+    });
+    document.getElementById('anaScat').innerHTML = out;
+    document.getElementById('anaScatCap').textContent = lab[ky] + ' against ' + lab[kx] + ' for every player on the board — top-right is elite at both.';
+  }
+  function renderAnalysis(unit){
+    var board = boardJSON();
+    doPlot(unit ? {kind:'bars', unit:unit} : {kind:'bars'}, board);
+    var named = namedPlayers(board).sort(function(a, b){ return overall(b.ratings || {}) - overall(a.ratings || {}); });
+    var opts = named.map(function(p){ return [p.name, p.name + ' · ' + overall(p.ratings || {})]; });
+    var ra = document.getElementById('radA'), rb = document.getElementById('radB');
+    var rc = document.getElementById('anaRadarCap');
+    if (named.length >= 2){
+      fillSelect(ra, opts, true); fillSelect(rb, opts, true);
+      if (ra.value === rb.value){ ra.selectedIndex = 0; rb.selectedIndex = 1; }
+      renderRadar();
+    } else {
+      document.getElementById('anaRadar').innerHTML = '';
+      rc.textContent = 'Load squads (top menu) to compare players on a radar.';
+    }
+    var attrOpts = ATTRS.map(function(at){ return [at.k, at.label]; });
+    var sx = document.getElementById('scX'), sy = document.getElementById('scY');
+    if (!sx.options.length){ fillSelect(sx, attrOpts); sx.value = 'pace'; fillSelect(sy, attrOpts); sy.value = 'finishing'; }
+    renderScatter();
+    document.getElementById('plotPanel').hidden = true;
+  }
+  ['radA','radB'].forEach(function(id){ document.getElementById(id).addEventListener('change', renderRadar); });
+  ['scX','scY'].forEach(function(id){ document.getElementById(id).addEventListener('change', renderScatter); });
+  document.getElementById('unitSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x === b); });
+    try { renderAnalysis(b.dataset.u); } catch(err){ console.warn(err); }
+  });
+  // ── heatmap sub-categories ──
+  var HNX = 24, HNY = 16;
+  var metH = function(dx, dy){ return Math.hypot(dx*1.05, dy*0.68); };
+  var spdH = function(pace){ return 3.2 + (pace/100)*4.3; };
+  function heatPlayers(board, team){
+    var ps = [];
+    ['red','blue'].forEach(function(t){
+      if (team && t !== team) return;
+      (board.teams[t].players || []).forEach(function(p){
+        var rt = p.ratings || {};
+        ps.push({team:t, x:p.x, y:p.y, name:p.name || p.role, pace:+rt.pace || 50,
+                 def:((+rt.positioning || 50) + (+rt.strength || 50))/2});
+      });
+    });
+    return ps;
+  }
+  function cellsLoop(fn){
+    var vals = new Float64Array(HNX*HNY);
+    for (var j = 0; j < HNY; j++) for (var i = 0; i < HNX; i++)
+      vals[j*HNX + i] = fn((i + .5)/HNX*100, (j + .5)/HNY*100);
+    return vals;
+  }
+  function normMap(vals, team){                        // 0..max → team-coloured half of the scale
+    var mx = 0; for (var k = 0; k < vals.length; k++) if (vals[k] > mx) mx = vals[k];
+    var out = new Float64Array(vals.length);
+    for (var k2 = 0; k2 < vals.length; k2++){
+      var n = mx > 0 ? vals[k2]/mx : 0;
+      out[k2] = team === 'blue' ? .5 - .5*n : .5 + .5*n;
+    }
+    return out;
+  }
+  function normFull(vals){                             // 0..max -> full colour range (red = highest)
+    var mx = 0; for (var k = 0; k < vals.length; k++) if (vals[k] > mx) mx = vals[k];
+    var out = new Float64Array(vals.length);
+    for (var k2 = 0; k2 < vals.length; k2++) out[k2] = mx > 0 ? vals[k2]/mx : 0;
+    return out;
+  }
+  function possTeam(){ try { if (BALL.owner) return players.get(BALL.owner).team; } catch(e){} return 'red'; }
+  function mkHeat(vals, title, caption, summary){ return {kind:'custom', opts:{}, NX:HNX, NY:HNY, vals:vals, title:title, caption:caption, summary:summary || ''}; }
+  var heatSel = null;                                  // {team, number} — clicked player on the heat svg
+  var HEATFN = {
+    control: function(board){ return computeHeat('control', {}, board); },
+    poss: function(board){
+      var T = possTeam(), ps = heatPlayers(board, T);
+      var raw = cellsLoop(function(cx, cy){
+        var s = 0;
+        ps.forEach(function(p){ var d = metH(p.x - cx, p.y - cy), sg = 6 + (p.pace/100)*8; s += Math.exp(-d*d/(2*sg*sg)); });
+        return s;
+      });
+      return mkHeat(normFull(raw), 'Possession map — where ' + teamLabel(T) + ' lives on the ball',
+        'Occupation density of ' + teamLabel(T) + ' (the team in possession). Stronger colour = more bodies and influence there.');
+    },
+    space: function(board){
+      var ps = heatPlayers(board);
+      var raw = cellsLoop(function(cx, cy){
+        var infl = 0;
+        ps.forEach(function(p){ var d = metH(p.x - cx, p.y - cy), sg = 6 + (p.pace/100)*8; var w = Math.exp(-d*d/(2*sg*sg)); if (w > infl) infl = w; });
+        return 1 - infl;
+      });
+      return mkHeat(normFull(raw), 'Space map — where the pitch is open',
+        'Red = unoccupied space no player currently controls; pale = congested areas. Attack into the red.');
+    },
+    carry: function(board){
+      if (!heatSel && BALL.owner){
+        var o = players.get(BALL.owner);
+        heatSel = {team:o.team, number:o.n}; heatMode = 'player';
+      }
+      if (heatSel){
+        var f = findHeatPlayer(board);
+        if (f) return PFN.carry(board, f);
+      }
+      say('Click a player — Carry is a per-player map');
+      return HEATFN.space(board);
+    },
+    danger: function(board){
+      var T = possTeam(), goalX = T === 'red' ? 100 : 0;
+      var ps = heatPlayers(board, T);
+      var raw = cellsLoop(function(cx, cy){
+        var infl = 0;
+        ps.forEach(function(p){ var d = metH(p.x - cx, p.y - cy); infl += Math.exp(-d*d/(2*64)); });
+        return infl * Math.exp(-metH(goalX - cx, 50 - cy)/26);
+      });
+      return mkHeat(normFull(raw), 'Danger map — ' + teamLabel(T) + '\u2019s threat zones',
+        'Attacking presence of ' + teamLabel(T) + ' weighted by closeness to the opposition goal. Strong colour = shooting and cut-back territory.');
+    }
+  };
+  HEATFN.pspace = function(board){
+    if (!heatSel) return HEATFN.space(board);
+    var f = null;
+    (board.teams[heatSel.team].players || []).forEach(function(p){ if (p.number === heatSel.number) f = p; });
+    if (!f) return HEATFN.space(board);
+    var pace = +((f.ratings || {}).pace) || 50;
+    var opps = heatPlayers(board, heatSel.team === 'red' ? 'blue' : 'red');
+    var mates = heatPlayers(board, heatSel.team).filter(function(p){ return !(Math.abs(p.x - f.x) < .01 && Math.abs(p.y - f.y) < .01); });
+    var m2 = 0, cellArea = (105/HNX)*(68/HNY);
+    var raw = cellsLoop(function(cx, cy){
+      var dP = metH(f.x - cx, f.y - cy);
+      var local = Math.exp(-(dP*dP)/(2*15*15));          // "his surroundings": fades beyond ~30 m
+      var tP = dP/spdH(pace), tO = 1e9;
+      opps.forEach(function(o){
+        var t = (metH(o.x - cx, o.y - cy)/spdH(o.pace)) / (0.55 + 0.9*o.def/100);  // skilled defenders close space faster
+        if (t < tO) tO = t;
+      });
+      var open = 1/(1 + Math.exp((tP - tO)/0.7));
+      var tm = 1e9;
+      mates.forEach(function(q){ var d = metH(q.x - cx, q.y - cy); if (d < tm) tm = d; });
+      var block = 1 - 0.5*Math.exp(-(tm*tm)/(2*36));      // a teammate standing there isn't usable space
+      var v = open * block * local;
+      m2 += open * block * (local > .2 ? 1 : 0) * cellArea;
+      return v;
+    });
+    var nm = f.name || ('#' + f.number);
+    var h = mkHeat(normFull(raw), 'Space map — ' + nm + '\u2019s effective space',
+      nm + ' has ≈ ' + Math.round(m2) + ' m\u00b2 of effective space: room he reaches before the nearest opponent closes it, discounted for defenders\u2019 pace, positioning and strength. Drag defenders around him in LIVE mode and watch it shrink.');
+    return h;
+  };
+  HEATFN.player = function(board){
+    if (!heatSel) return HEATFN.control(board);
+    var f = null;
+    (board.teams[heatSel.team].players || []).forEach(function(p){ if (p.number === heatSel.number) f = p; });
+    if (!f) return HEATFN.control(board);
+    var pace = +((f.ratings || {}).pace) || 50;
+    var opps = heatPlayers(board, heatSel.team === 'red' ? 'blue' : 'red');
+    var raw = cellsLoop(function(cx, cy){
+      var tF = metH(f.x - cx, f.y - cy)/spdH(pace), tO = 1e9;
+      opps.forEach(function(p){ var t = metH(p.x - cx, p.y - cy)/spdH(p.pace); if (t < tO) tO = t; });
+      var pF = 1/(1 + Math.exp((tF - tO)/0.7));
+      return heatSel.team === 'red' ? pF : 1 - pF;
+    });
+    var nm = f.name || ('#' + f.number);
+    return {kind:'custom', opts:{}, NX:HNX, NY:HNY, vals:raw,
+      title:'Player map — where ' + nm + ' gets there first',
+      caption:'Race map for ' + nm + ': his colour end = he beats the nearest opponent to the ball. Click another player, or a category above.', summary:''};
+  };
+  function drawHeatMagnets(){
+    var svg = document.getElementById('heatSvg'), board = boardJSON();
+    var css = getComputedStyle(document.documentElement);
+    var cols = {red:css.getPropertyValue('--red').trim() || '#d63a2f', blue:css.getPropertyValue('--blue').trim() || '#2a5bd0'};
+    ['red','blue'].forEach(function(team){
+      (board.teams[team].players || []).forEach(function(p){
+        var v = toView({x:p.x, y:p.y});
+        var g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('transform', 'translate(' + v.x.toFixed(1) + ' ' + v.y.toFixed(1) + ')');
+        g.style.cursor = heatLocked ? 'pointer' : 'grab';
+        var on = heatSel && heatSel.team === team && heatSel.number === p.number;
+        g.innerHTML = '<circle r="17" fill="' + cols[team] + '" stroke="' + (on ? '#b8e34d' : '#fff') + '" stroke-width="' + (on ? 4.5 : 2.5) + '"/>'
+          + '<text y="5" text-anchor="middle" fill="#fff" font-family="Manrope,system-ui" font-size="15" font-weight="800" style="pointer-events:none">' + p.number + '</text>'
+          + '<title></title>';
+        g.querySelector('title').textContent = (p.name || '#' + p.number) + (heatLocked ? ' — click for his race map' : ' — drag to reposition');
+        g.addEventListener('pointerdown', function(ev){
+          if (heatLocked) return;
+          ev.preventDefault();
+          heatDrag = {team:team, number:p.number, moved:false};
+        });
+        g.addEventListener('click', function(){
+          if (!heatLocked) return;
+          heatSel = {team:team, number:p.number};
+          heatMode = 'player';
+          if (curHeat === 'pspace') curHeat = 'space';
+          if (curHeat === 'player') curHeat = 'control';
+          runHeat();
+        });
+        svg.appendChild(g);
+      });
+    });
+  }
+  // lock / live mode: unlocked lets you drag players right on the heatmap
+  var heatLocked = true, heatDrag = null, heatRaf = null;
+  function heatPointerPos(e){
+    var svg = document.getElementById('heatSvg'), r = svg.getBoundingClientRect();
+    var vx = (e.clientX - r.left)/r.width*1391, vy = (e.clientY - r.top)/r.height*1000;
+    return toPitch({x:vx/13.91, y:vy/10});
+  }
+  window.addEventListener('pointermove', function(e){
+    if (!heatDrag) return;
+    heatDrag.moved = true;
+    var pt = heatPointerPos(e), lp = null;
+    players.forEach(function(q){ if (q.team === heatDrag.team && q.n === heatDrag.number) lp = q; });
+    if (!lp) return;
+    lp.x = Math.max(0, Math.min(100, pt.x));
+    lp.y = Math.max(0, Math.min(100, pt.y));
+    render(lp); markCustom(lp.team);
+    if (!heatRaf) heatRaf = requestAnimationFrame(function(){ heatRaf = null; if (heatDrag) runHeat(); });
+  });
+  window.addEventListener('pointerup', function(){
+    if (!heatDrag) return;
+    var moved = heatDrag.moved; heatDrag = null;
+    if (moved) runHeat();
+  });
+  // ── selectable colour maps (red end = highest value) ──
+  var CMAP_STOPS = {
+    rainbow:[[13,35,159],[0,190,255],[46,213,86],[255,225,0],[255,30,0]],
+    viridis:[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]],
+    inferno:[[0,0,4],[87,16,110],[188,55,84],[249,142,9],[252,255,164]],
+    grey:[[25,25,25],[242,242,242]]
+  };
+  var curCmap = 'rainbow';
+  var origHeatColor = heatColor;
+  heatColor = function(v){
+    v = Math.max(0, Math.min(1, v));
+    if (curCmap === 'redblue') return origHeatColor(v);
+    var st = CMAP_STOPS[curCmap], n = st.length - 1, t = v*n, i = Math.min(n - 1, Math.floor(t)), f = t - i;
+    var a = st[i], b = st[i + 1];
+    return 'rgb(' + Math.round(a[0] + (b[0]-a[0])*f) + ',' + Math.round(a[1] + (b[1]-a[1])*f) + ',' + Math.round(a[2] + (b[2]-a[2])*f) + ')';
+  };
+  function legendGrad(){
+    var el = document.querySelector('.heat-legend i'); if (!el) return;
+    var cols = []; for (var k = 0; k <= 10; k++) cols.push(heatColor(k/10));
+    el.style.background = 'linear-gradient(90deg,' + cols.join(',') + ')';
+  }
+  function findHeatPlayer(board){
+    if (!heatSel) return null;
+    var f = null;
+    (board.teams[heatSel.team].players || []).forEach(function(p){ if (p.number === heatSel.number) f = p; });
+    return f;
+  }
+  function pnameH(f){ return f.name || ('#' + f.number); }
+  function maskToNeutral(h, f){
+    for (var j = 0; j < HNY; j++) for (var i = 0; i < HNX; i++){
+      var k = j*HNX + i, cx = (i + .5)/HNX*100, cy = (j + .5)/HNY*100;
+      var d = metH(f.x - cx, f.y - cy);
+      h.vals[k] = 0.5 + (h.vals[k] - 0.5)*Math.exp(-(d*d)/(2*225));
+    }
+    return h;
+  }
+  var PFN = {
+    control: function(board, f){ var h = maskToNeutral(HEATFN.player(board), f); h.caption += ' Faded to neutral outside his reach.'; return h; },
+    carry: function(board, f){
+      var rt = f.ratings || {}, pace = +rt.pace || 50, dri = +rt.dribbling || 50, comp = +rt.composure || 50;
+      var carrySpd = spdH(pace)*(0.7 + 0.3*dri/100);       // carrying is slower than sprinting; touch helps
+      var sg = 12 + 12*(pace/100);                          // faster players can carry further
+      var opps = heatPlayers(board, heatSel.team === 'red' ? 'blue' : 'red');
+      var skill = (dri + comp)/2;
+      function closeT(px, py){                              // fastest skill-adjusted opponent arrival at a point
+        var tO = 1e9, defN = 50;
+        opps.forEach(function(o){
+          var t = (metH(o.x - px, o.y - py)/spdH(o.pace)) / (0.55 + 0.9*o.def/100);
+          if (t < tO){ tO = t; defN = o.def; }
+        });
+        return {t:tO, def:defN};
+      }
+      // congestion on the carrier himself: surrounded = the whole carry is compromised
+      var atMe = closeT(f.x, f.y);
+      var duelMe = 0.75 + 0.5/(1 + Math.exp(-(skill - atMe.def)/12));
+      var start = 1/(1 + Math.exp(-(atMe.t*duelMe - 0.9)/0.45));
+      var raw = cellsLoop(function(cx, cy){
+        var dP = metH(f.x - cx, f.y - cy);
+        var local = Math.exp(-dP*dP/(2*sg*sg));
+        function openAt(px, py){
+          var c = closeT(px, py);
+          var duel = 0.75 + 0.5/(1 + Math.exp(-(skill - c.def)/12));
+          return 1/(1 + Math.exp((metH(f.x - px, f.y - py)/carrySpd - c.t*duel)/0.7));
+        }
+        var open = Math.min(openAt(cx, cy), openAt((f.x + cx)/2, (f.y + cy)/2));  // can't carry through a defender
+        return local * start * open;
+      });
+      return mkHeat(raw, 'Carry map — where ' + pnameH(f) + ' can take the ball',
+        'Absolute scale: red only where a carry is genuinely on. Congestion around him caps the whole map, defenders on the carry path block it, and his dribbling + composure vs their positioning + strength tilts every duel.');
+    },
+    space:   function(board, f){ return HEATFN.pspace(board); },
+    poss: function(board, f){
+      var rt = f.ratings || {}, pace = +rt.pace || 50, def = ((+rt.positioning || 50) + (+rt.strength || 50))/2;
+      var raw = cellsLoop(function(cx, cy){
+        var t = (metH(f.x - cx, f.y - cy)/spdH(pace)) / (0.55 + 0.9*def/100);
+        return Math.exp(-t/2.5);
+      });
+      return mkHeat(normFull(raw), 'Influence — ' + pnameH(f) + '\u2019s effective reach',
+        'The ground he genuinely commands: how fast he puts a body on the ball anywhere near him, adjusted for pace, positioning and strength.');
+    },
+    danger: function(board, f){
+      var goalX = heatSel.team === 'red' ? 100 : 0;
+      var raw = cellsLoop(function(cx, cy){
+        var d = metH(f.x - cx, f.y - cy);
+        return Math.exp(-d*d/(2*64)) * Math.exp(-metH(goalX - cx, 50 - cy)/26);
+      });
+      return mkHeat(normFull(raw), 'Danger — ' + pnameH(f) + '\u2019s threat zones',
+        'His presence weighted by closeness to the opposition goal.');
+    }
+  };
+  var heatMode = 'team';
+  var heatSeg = document.createElement('div');
+  heatSeg.className = 'unit-seg'; heatSeg.id = 'heatSeg'; heatSeg.style.margin = '2px 2px 10px';
+  var modeWrap = document.createElement('span');
+  modeWrap.style.cssText = 'display:flex;gap:4px;padding-right:8px;margin-right:4px;border-right:1px solid #332d24';
+  [['team','TEAM'],['player','PLAYER']].forEach(function(kv, i){
+    var b = document.createElement('button'); b.type = 'button';
+    if (i === 0) b.className = 'on';
+    b.dataset.m = kv[0]; b.textContent = kv[1];
+    b.addEventListener('click', function(){
+      if (kv[0] === 'player' && !heatSel){ say('Click a player on the map to enter player mode'); return; }
+      heatMode = kv[0];
+      if (heatMode === 'team') heatSel = null;
+      runHeat();
+    });
+    modeWrap.appendChild(b);
+  });
+  heatSeg.appendChild(modeWrap);
+  [['control','Pitch control'],['poss','Possession'],['space','Space'],['carry','Carry'],['danger','Danger']].forEach(function(kv, i){
+    var b = document.createElement('button'); b.type = 'button';
+    if (i === 0) b.className = 'on';
+    b.dataset.h = kv[0]; b.textContent = kv[1];
+    heatSeg.appendChild(b);
+  });
+  var hpEl = document.getElementById('heatPanel');
+  hpEl.insertBefore(heatSeg, hpEl.querySelector('.panel-body'));
+  var lockBtn = document.createElement('button');
+  lockBtn.type = 'button'; lockBtn.id = 'heatLock'; lockBtn.style.marginLeft = 'auto';
+  var cmapSel = document.createElement('select');
+  cmapSel.id = 'cmapSel'; cmapSel.title = 'Colour map';
+  cmapSel.style.cssText = 'margin-left:auto;min-width:0;padding:6px 26px 6px 10px;font-size:12px;border-radius:8px';
+  [['rainbow','Rainbow'],['redblue','Red – Blue'],['viridis','Viridis'],['inferno','Inferno'],['grey','Greyscale']].forEach(function(kv){
+    cmapSel.add(new Option(kv[1], kv[0]));
+  });
+  cmapSel.addEventListener('change', function(){ curCmap = cmapSel.value; runHeat(); });
+  heatSeg.appendChild(cmapSel);
+  lockBtn.style.marginLeft = '8px';
+  heatSeg.style.display = 'flex'; heatSeg.style.width = 'auto';
+  function syncLock(){
+    lockBtn.textContent = heatLocked ? 'LOCKED' : 'LIVE — drag players';
+    lockBtn.classList.toggle('on', !heatLocked);
+    lockBtn.title = heatLocked ? 'Unlock to drag players on the heatmap and watch it react' : 'Lock the players again';
+  }
+  lockBtn.addEventListener('click', function(){ heatLocked = !heatLocked; syncLock(); runHeat(); });
+  syncLock();
+  heatSeg.appendChild(lockBtn);
+  var curHeat = 'control';
+  function runHeat(){
+    var h = null;
+    try {
+      var board = boardJSON();
+      if (heatMode === 'player' && heatSel){
+        var f = findHeatPlayer(board);
+        if (f && PFN[curHeat]) h = PFN[curHeat](board, f);
+      }
+      if (!h) h = HEATFN[curHeat](board);
+    } catch(err){ console.warn(err); }
+    if (!h || h.error) h = computeHeat('control', {}, boardJSON());
+    showHeat(h);
+    drawHeatMagnets();
+    heatSeg.querySelectorAll('button').forEach(function(x){
+      if (!x.dataset.h) return;
+      var k = curHeat === 'pspace' ? 'space' : curHeat === 'player' ? 'control' : curHeat;
+      x.classList.toggle('on', x.dataset.h === k);
+    });
+    modeWrap.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.m === heatMode); });
+    var lg = document.querySelectorAll('.heat-legend span');
+    if (lg.length === 2){
+      if (curCmap === 'redblue'){ lg[0].textContent = teamLabel('blue').toUpperCase(); lg[1].textContent = teamLabel('red').toUpperCase(); }
+      else { lg[0].textContent = 'LOW'; lg[1].textContent = 'HIGH'; }
+    }
+    legendGrad();
+  }
+  heatSeg.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    if (!b.dataset.h) return;                    // mode buttons handle themselves
+    curHeat = b.dataset.h; runHeat();
+  });
+  var TABS = ['board','chat','squads','playbook','setpiece','compare','heat','plot','present'];  function selectTab(tab){
+    bar.querySelectorAll('.tb').forEach(function(x){ x.classList.toggle('on', x.dataset.tab === tab); });
+    TABS.forEach(function(c){ document.body.classList.remove('tab-' + c); });
+    document.body.classList.add('tab-' + tab);
+    try {
+      if (tab === 'heat') runHeat();
+      if (tab === 'compare'){
+        renderAnalysis('');
+        document.querySelectorAll('#unitSeg button').forEach(function(x, i){ x.classList.toggle('on', i === 0); });
+      }
+      if (tab === 'squads') renderSquads();
+    } catch(err){ console.warn(err); }
+    setTimeout(sizeChat, 60);
+  }
+  bar.addEventListener('click', function(e){
+    var b = e.target.closest('.tb'); if (!b) return;
+    selectTab(b.dataset.tab);
+  });
+})();
 </script>
 </body>
 </html>
